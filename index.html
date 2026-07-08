@@ -263,7 +263,7 @@
 
                         <!-- 写真入力エリア -->
                         <div id="photoInputArea" class="fade-in">
-                            <p id="uploadHint" class="text-xs text-blue-600 mb-4">見積書や、コンセントなどの設置環境の写真を複数選択してください。</p>
+                            <p id="uploadHint" class="text-xs text-blue-600 mb-4">商品の見積書やレシート、画面のスクリーンショット等を選択してください。</p>
                             
                             <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition">
                                 <input type="file" id="images" name="files" multiple accept="image/*" 
@@ -616,7 +616,7 @@
         categorySelect.addEventListener('change', (e) => {
             const val = e.target.value;
             if (val === 'エアコン') {
-                uploadHint.textContent = '見積書や、コンセントなどの設置環境の写真を複数選択してください。';
+                uploadHint.textContent = '商品の見積書やレシート、画面のスクリーンショット等を選択してください。';
             } else if (val === '車検・整備') {
                 uploadHint.textContent = '車検や整備の見積書、車検証などの写真を複数選択してください。';
             } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
