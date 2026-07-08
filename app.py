@@ -117,40 +117,59 @@ async def analyze_images(
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
         models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
             "gemini-3.5-flash", 
             "gemini-3.5-pro", 
-            "gemini-3.0-flash", 
-            "gemini-2.5-flash",
-            "gemini-2.0-flash"
+            "gemini-3.0-flash"
         ]
+        
+        # === Step 1: リアルタイムWeb検索による最新相場の取得 ===
+        search_prompt = f"以下の見積もり内容および（添付があれば）画像を確認し、Google検索を用いて「今日の最新の適正相場」をリサーチしてください。その上で、見積もりが適正か、ぼったくりか、不要な項目があるかを詳細に分析したテキストレポートを作成してください。\n\n{prompt}"
+        
+        step1_response_text = ""
+        for model_name in models_to_try:
+            try:
+                # 検索ツールを有効にしたモデル（JSONモード不可）
+                search_model = genai.GenerativeModel(
+                    model_name=model_name,
+                    tools="google_search_retrieval"
+                )
+                search_response = search_model.generate_content([search_prompt] + image_parts)
+                step1_response_text = search_response.text
+                break
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "Quota" in error_msg or "404" in error_msg or "not found" in error_msg.lower() or "deprecated" in error_msg.lower() or "not supported" in error_msg.lower():
+                    continue
+                else:
+                    return {"status": "error", "message": f"検索処理中にエラーが発生しました: {error_msg}"}
+                    
+        if not step1_response_text:
+            return {"status": "error", "message": "利用可能なすべてのAIモデルで利用制限に達したか、利用できません。明日までお待ちいただくか、新しいAPIキーをご用意ください。"}
+
+        # === Step 2: 検索結果をJSONフォーマットに整形 ===
+        formatting_prompt = f"以下の「Web検索を用いた詳細な分析レポート」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。推測はせず、レポート内の事実に基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
         
         response = None
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(
+                json_model = genai.GenerativeModel(
                     model_name=model_name,
                     system_instruction=SYSTEM_INSTRUCTION,
                     generation_config={"response_mime_type": "application/json"}
                 )
-                response = model.generate_content([prompt] + image_parts)
-                break  # 成功したらループを抜ける
+                response = json_model.generate_content(formatting_prompt)
+                break
             except Exception as e:
                 error_msg = str(e)
-                # 429(制限) や 404(存在しないモデル) などの場合は次のモデルを試す
-                if "429" in error_msg or "Quota exceeded" in error_msg or "404" in error_msg or "not found" in error_msg.lower() or "deprecated" in error_msg.lower():
+                if "429" in error_msg or "Quota" in error_msg or "404" in error_msg or "not found" in error_msg.lower() or "deprecated" in error_msg.lower():
                     continue
                 else:
-                    # それ以外のエラー（認証エラーなど）はそのまま返す
-                    return {
-                        "status": "error",
-                        "message": f"モデル {model_name} でエラーが発生しました: {error_msg}"
-                    }
+                    return {"status": "error", "message": f"フォーマット処理中にエラーが発生しました: {error_msg}"}
                     
         if not response:
-            return {
-                "status": "error",
-                "message": "利用可能なすべての無料AIモデル（3.5〜2.0シリーズ等）で利用制限（1日の上限）に達したか、利用できません。明日までお待ちいただくか、新しいAPIキーをご用意ください。"
-            }
+            return {"status": "error", "message": "フォーマット処理のAIモデル利用制限に達しました。"}
         
         # 応答テキストをJSONとしてパース
         result_json = json.loads(response.text)
