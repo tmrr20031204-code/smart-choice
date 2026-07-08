@@ -130,26 +130,42 @@ async def analyze_images(
         step1_response_text = ""
         for model_name in models_to_try:
             try:
-                # 検索ツールを有効にしたモデル（JSONモード不可）
                 search_model = genai.GenerativeModel(
                     model_name=model_name,
-                    tools="google_search_retrieval"
+                    tools="google_search"
                 )
                 search_response = search_model.generate_content([search_prompt] + image_parts)
                 step1_response_text = search_response.text
-                break
+                if step1_response_text:
+                    break
             except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "Quota" in error_msg or "404" in error_msg or "not found" in error_msg.lower() or "deprecated" in error_msg.lower() or "not supported" in error_msg.lower():
-                    continue
-                else:
-                    return {"status": "error", "message": f"検索処理中にエラーが発生しました: {error_msg}"}
+                continue
                     
+        # === フォールバック処理（検索が全滅した場合） ===
         if not step1_response_text:
-            return {"status": "error", "message": "利用可能なすべてのAIモデルで利用制限に達したか、利用できません。明日までお待ちいただくか、新しいAPIキーをご用意ください。"}
+            response = None
+            for model_name in models_to_try:
+                try:
+                    fallback_model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=SYSTEM_INSTRUCTION,
+                        generation_config={"response_mime_type": "application/json"}
+                    )
+                    response = fallback_model.generate_content([prompt] + image_parts)
+                    break
+                except Exception:
+                    continue
+            
+            if not response:
+                return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
+            
+            try:
+                return json.loads(response.text)
+            except json.JSONDecodeError:
+                return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
 
         # === Step 2: 検索結果をJSONフォーマットに整形 ===
-        formatting_prompt = f"以下の「Web検索を用いた詳細な分析レポート」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。推測はせず、レポート内の事実に基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
+        formatting_prompt = f"以下の「分析レポート」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。レポート内の事実に基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
         
         response = None
         for model_name in models_to_try:
@@ -161,15 +177,11 @@ async def analyze_images(
                 )
                 response = json_model.generate_content(formatting_prompt)
                 break
-            except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "Quota" in error_msg or "404" in error_msg or "not found" in error_msg.lower() or "deprecated" in error_msg.lower():
-                    continue
-                else:
-                    return {"status": "error", "message": f"フォーマット処理中にエラーが発生しました: {error_msg}"}
+            except Exception:
+                continue
                     
         if not response:
-            return {"status": "error", "message": "フォーマット処理のAIモデル利用制限に達しました。"}
+            return {"status": "error", "message": "解析中にAIモデルの利用制限に達しました。"}
         
         # 応答テキストをJSONとしてパース
         result_json = json.loads(response.text)
