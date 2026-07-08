@@ -630,25 +630,45 @@
             }
         });
         
-        fileInput.addEventListener('change', (e) => {
-            const count = e.target.files.length;
-            imagePreviewContainer.innerHTML = ''; // 既存のプレビューをクリア
+        // グローバルファイル管理変数
+        let globalSelectedFiles = [];
+
+        function updateImagePreviews() {
+            imagePreviewContainer.innerHTML = '';
             const clearBtn = document.getElementById('clearPhotosBtn');
             
-            if (count > 0) {
-                fileCountText.textContent = `${count}枚の画像が選択されました`;
+            if (globalSelectedFiles.length > 0) {
+                fileCountText.textContent = `${globalSelectedFiles.length}枚の画像が選択されました`;
                 fileCountText.className = "text-sm text-blue-600 font-bold mt-1";
                 imagePreviewContainer.classList.remove('hidden');
                 if (clearBtn) clearBtn.classList.remove('hidden');
                 
-                // 選択された画像をプレビュー表示
-                Array.from(e.target.files).forEach(file => {
+                globalSelectedFiles.forEach((file, index) => {
                     const reader = new FileReader();
                     reader.onload = (event) => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'relative inline-block m-1';
+                        
                         const img = document.createElement('img');
                         img.src = event.target.result;
-                        img.className = 'w-16 h-16 object-cover rounded-md border border-gray-200 shadow-sm';
-                        imagePreviewContainer.appendChild(img);
+                        img.className = 'w-16 h-16 object-cover rounded-md border border-gray-200 shadow-sm cursor-pointer hover:opacity-80 transition';
+                        // クリックでモーダル拡大
+                        img.onclick = () => openImageModal(event.target.result);
+                        
+                        // 個別削除用バツボタン
+                        const removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.innerHTML = '✕';
+                        removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow hover:bg-red-600 focus:outline-none leading-none pb-[1px]';
+                        removeBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            globalSelectedFiles.splice(index, 1);
+                            updateImagePreviews();
+                        };
+                        
+                        wrapper.appendChild(img);
+                        wrapper.appendChild(removeBtn);
+                        imagePreviewContainer.appendChild(wrapper);
                     };
                     reader.readAsDataURL(file);
                 });
@@ -657,38 +677,40 @@
                 fileCountText.className = "text-xs text-gray-500";
                 imagePreviewContainer.classList.add('hidden');
                 if (clearBtn) clearBtn.classList.add('hidden');
+                fileInput.value = ''; // 元のinputもクリア
+            }
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                globalSelectedFiles = globalSelectedFiles.concat(files);
+                updateImagePreviews();
             }
         });
 
-        // 写真クリアボタンの処理
+        // 写真クリア（全削除）ボタンの処理
         document.getElementById('clearPhotosBtn').addEventListener('click', () => {
-            fileInput.value = '';
-            fileInput.dispatchEvent(new Event('change'));
+            globalSelectedFiles = [];
+            updateImagePreviews();
         });
 
         // クリップボードからの画像貼り付け（Ctrl+V）に対応
         document.addEventListener('paste', (e) => {
             const items = (e.clipboardData || window.clipboardData).items;
-            const dataTransfer = new DataTransfer();
-            let hasImage = false;
-            
-            // すでに選択されている画像があれば保持する
-            if (fileInput.files) {
-                Array.from(fileInput.files).forEach(file => dataTransfer.items.add(file));
-            }
+            let added = false;
             
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf('image') !== -1) {
                     const blob = items[i].getAsFile();
                     const file = new File([blob], `screenshot_${Date.now()}_${i}.png`, { type: blob.type });
-                    dataTransfer.items.add(file);
-                    hasImage = true;
+                    globalSelectedFiles.push(file);
+                    added = true;
                 }
             }
             
-            if (hasImage) {
-                fileInput.files = dataTransfer.files;
-                fileInput.dispatchEvent(new Event('change'));
+            if (added) {
+                updateImagePreviews();
             }
         });
 
@@ -808,8 +830,8 @@
             formData.append('category', categorySelect.value);
             
             if (currentInputMode === 'photo') {
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    const file = fileInput.files[i];
+                for (let i = 0; i < globalSelectedFiles.length; i++) {
+                    const file = globalSelectedFiles[i];
                     try {
                         const compressedFile = await compressImage(file);
                         formData.append('files', compressedFile);
@@ -1025,11 +1047,14 @@
 
         function resetApp() {
             document.getElementById('uploadForm').reset();
+            globalSelectedFiles = [];
             fileCountText.textContent = "選択されていません";
             fileCountText.className = "text-xs text-gray-500";
             if (typeof imagePreviewContainer !== 'undefined') {
                 imagePreviewContainer.innerHTML = '';
                 imagePreviewContainer.classList.add('hidden');
+                const clearBtn = document.getElementById('clearPhotosBtn');
+                if (clearBtn) clearBtn.classList.add('hidden');
             }
             
             document.getElementById('resultSection').classList.add('hidden');
