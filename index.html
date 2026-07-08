@@ -486,8 +486,8 @@
             
             container.innerHTML = history.map(item => {
                 let statusIcon = "ℹ️";
-                if (item.data.evaluation && (item.data.evaluation.includes('割高') || item.data.evaluation.includes('危険'))) statusIcon = "⚠️";
-                else if (item.data.evaluation && item.data.evaluation.includes('通り')) statusIcon = "✅";
+                if (item.data.evaluation && (item.data.evaluation.includes('危険') || item.data.evaluation.includes('割高'))) statusIcon = "⚠️";
+                else if (item.data.evaluation && (item.data.evaluation.includes('通り') || item.data.evaluation.includes('割安') || item.data.evaluation.includes('買い得'))) statusIcon = "✅";
                 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-3 hover:border-blue-400 hover:shadow-md transition relative group">
@@ -774,12 +774,18 @@
             evalText.textContent = evalValue;
             
             evalCard.className = "p-5 rounded-xl text-center shadow-sm border-2";
-            if (evalValue.includes('割高') || evalValue.includes('危険')) {
+            if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり')) {
                 evalCard.classList.add('border-red-400', 'bg-red-50', 'text-red-700');
-            } else if (evalValue.includes('やや')) {
-                evalCard.classList.add('border-yellow-400', 'bg-yellow-50', 'text-yellow-700');
-            } else {
+            } else if (evalValue.includes('やや割高')) {
+                evalCard.classList.add('border-yellow-400', 'bg-orange-50', 'text-orange-700');
+            } else if (evalValue.includes('相場通り')) {
                 evalCard.classList.add('border-blue-400', 'bg-blue-50', 'text-blue-700');
+            } else if (evalValue.includes('やや割安')) {
+                evalCard.classList.add('border-green-300', 'bg-green-50', 'text-green-600');
+            } else if (evalValue.includes('お買い得')) {
+                evalCard.classList.add('border-green-500', 'bg-green-100', 'text-green-800');
+            } else {
+                evalCard.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-700');
             }
 
             const infraText = document.getElementById('infrastructureCheck');
