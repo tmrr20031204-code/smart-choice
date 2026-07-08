@@ -915,9 +915,17 @@
             priceList.innerHTML = '';
             if (data.price_analysis && data.price_analysis.itemized_list) {
                 data.price_analysis.itemized_list.forEach(item => {
-                    const isWarning = item.status && (item.status.includes('割高') || item.status.includes('不要'));
-                    const statusColor = isWarning ? 'text-red-700 bg-red-100 border-red-200' : 'text-green-700 bg-green-100 border-green-200';
-                    const icon = isWarning ? '⚠️' : '✅';
+                    let statusColor = 'text-gray-700 bg-gray-100 border-gray-200';
+                    let icon = 'ℹ️';
+                    if (item.status) {
+                        if (item.status.includes('割高') || item.status.includes('不要') || item.status.includes('要注意') || item.status.includes('危険') || item.status.includes('異常') || item.status.includes('ぼったくり')) {
+                            statusColor = 'text-red-700 bg-red-100 border-red-200';
+                            icon = '⚠️';
+                        } else if (item.status.includes('相場通り') || item.status.includes('適正') || item.status.includes('割安') || item.status.includes('お買い得')) {
+                            statusColor = 'text-green-700 bg-green-100 border-green-200';
+                            icon = '✅';
+                        }
+                    }
                     
                     const div = document.createElement('div');
                     div.className = "flex flex-col p-3 border rounded-lg shadow-sm bg-white";
