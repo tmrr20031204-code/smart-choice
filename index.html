@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Choice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* カスタムローディングアニメーション用 */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* スムーズなフェードイン */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+    <div class="max-w-md mx-auto min-h-screen bg-white shadow-lg relative overflow-hidden flex flex-col">
+        <!-- ヘッダー -->
+        <header class="bg-blue-600 text-white p-4 shadow-md z-10 flex items-center justify-between relative">
+            <button id="menuButton" class="p-2 -ml-2 hover:bg-blue-700 rounded-lg transition focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <div class="flex-grow text-center">
+                <h1 class="text-xl font-bold tracking-wide">Smart Choice</h1>
+                <p class="text-xs mt-1 opacity-90">相見積もり・価格交渉支援</p>
+            </div>
+            <div class="w-10"></div> <!-- バランスを取るためのダミー -->
+        </header>
+
+        <!-- サイドメニューのオーバーレイ -->
+        <div id="menuOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden transition-opacity"></div>
+        
+        <!-- サイドメニュー -->
+        <div id="sideMenu" class="fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+            <div class="p-4 border-b border-gray-200 bg-blue-50 flex justify-between items-center">
+                <span class="font-bold text-blue-800">メニュー</span>
+                <button id="closeMenuButton" class="text-gray-500 hover:text-gray-800 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-grow overflow-y-auto py-2">
+                <button id="historyMenuBtn" class="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 font-medium transition flex items-center space-x-2 border-l-4 border-transparent hover:border-blue-500">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>過去の履歴</span>
+                </button>
+                <button id="aboutMenuBtn" class="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 font-medium transition flex items-center space-x-2 border-l-4 border-transparent hover:border-blue-500">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Smart Choiceについて</span>
+                </button>
+                <button id="termsMenuBtn" class="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 font-medium transition flex items-center space-x-2 border-l-4 border-transparent hover:border-blue-500">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    <span>利用規約・プライバシー</span>
+                </button>
+                <button id="feedbackMenuBtn" class="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 font-medium transition flex items-center space-x-2 border-l-4 border-transparent hover:border-blue-500">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+                    <span>💡 ご意見・フィードバック</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- History Modal -->
+        <div id="historyModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col fade-in">
+                <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+                    <h3 class="font-bold">過去の履歴</h3>
+                    <button id="closeHistoryModal" class="text-white hover:text-gray-200 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-5 overflow-y-auto text-sm text-gray-700 bg-gray-50 flex-grow" id="historyListContainer">
+                    <!-- JSがここに履歴を差し込む -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Terms Modal -->
+        <div id="termsModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col fade-in">
+                <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+                    <h3 class="font-bold text-sm">利用規約・プライバシーポリシー</h3>
+                    <button id="closeTermsModal" class="text-white hover:text-gray-200 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-5 overflow-y-auto text-sm text-gray-700 leading-relaxed space-y-4">
+                    <h4 class="font-bold text-blue-800 border-b pb-1">利用規約</h4>
+                    <p class="text-xs">
+                        1. 本サービス（Smart Choice）が提供する相場情報や交渉スクリプトは、AIによる推定値であり、その正確性・完全性・有用性を保証するものではありません。<br>
+                        2. 本サービスを利用して生じたいかなる損害（業者とのトラブル等）についても、運営者は一切の責任を負いません。最終的な交渉・契約の判断はユーザーご自身の責任において行ってください。<br>
+                        3. 悪意を持った利用（意図的な虚偽データの送信、システムの破壊行為など）を禁止します。
+                    </p>
+                    <h4 class="font-bold text-blue-800 border-b pb-1 mt-4">プライバシーポリシー</h4>
+                    <p class="text-xs">
+                        1. ユーザーがアップロードした画像およびテキストデータは、相場分析の目的のみに使用され、AIによる解析完了後にサーバーから速やかに破棄されます。<br>
+                        2. 個人を特定できる情報（氏名、詳細な住所、電話番号等）は分析に不要ですので、送信前にマスキング（黒塗り）等を行っていただくことを推奨します。<br>
+                        3. 本サービスは、利便性向上のために過去の履歴をユーザーの端末内（ブラウザのローカルストレージ）にのみ保存します。サーバー側で履歴を収集・監視することはありません。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedbackModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col fade-in">
+                <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+                    <h3 class="font-bold">ご意見・フィードバック</h3>
+                    <button id="closeFeedbackModal" class="text-white hover:text-gray-200 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-5 overflow-y-auto text-sm text-gray-700 leading-relaxed">
+                    <p class="mb-4">アプリの改善要望や応援メッセージなど、直接開発者へ届きます。</p>
+                    <textarea id="feedbackMessage" class="w-full h-32 p-3 border-2 border-blue-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition leading-relaxed resize-none" placeholder="ここに入力してください..."></textarea>
+                    <button id="submitFeedbackBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition mt-4 flex justify-center items-center">
+                        送信する
+                    </button>
+                    <div id="feedbackStatus" class="mt-3 text-center font-bold text-sm hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Modal -->
+        <div id="aboutModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col fade-in">
+                <div class="bg-blue-600 p-4 flex justify-between items-center text-white">
+                    <h3 class="font-bold">Smart Choiceについて</h3>
+                    <button id="closeAboutModal" class="text-white hover:text-gray-200 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-5 overflow-y-auto text-sm text-gray-700 leading-relaxed space-y-4">
+                    <p class="font-bold text-lg text-center text-blue-800 border-b pb-2">「その見積もり、本当に適正価格ですか？」</p>
+                    <p>Smart Choiceは、専門知識がないと見抜けない「不当な上乗せ」や「不要なオプション費用」からあなたを守り、<strong>良い製品・サービスを適正価格で受けるためのAI相見積もり・価格交渉支援ツール</strong>です。</p>
+                    
+                    <h4 class="font-bold text-blue-700 mt-4">✨ 圧倒的な3つの特徴 ✨</h4>
+                    
+                    <p class="font-bold text-gray-800">① スマホで写真を撮るだけ！一瞬で「無駄な費用」を見抜く</p>
+                    <p>もらった見積書や、設置したい場所の写真をアップロードするだけ。エアコン工事の隠れた追加費用から、車検、賃貸、住宅購入まで、AIがすべての項目をくまなくチェック。「相場通り」か「割高・不要」かを瞬時に仕分けし、<strong>「交渉で最大いくら削れるか」の合計金額</strong>を提示します。</p>
+                    
+                    <p class="font-bold text-gray-800">② 最新のリアルタイム相場に自動適応（インフレ対応済み）</p>
+                    <p>分析の瞬間に最新のWeb検索（Google検索）を裏側で実行します。増税や急激なインフレ、部品の高騰が起きても、常に「今日のリアルな適正相場」と比較するため、時代が変わっても100%正確にあなたを守り続けます。</p>
+                    
+                    <p class="font-bold text-gray-800">③ そのままコピペで使える「交渉スクリプト」を自動生成</p>
+                    <p>ぼったくりを見つけても、自分で業者に角を立てずに断るのは難しいもの。Smart Choiceは、「相手の気分を害することなく、論理的に不要なオプションを断り、適正価格に導くための交渉メッセージ」を自動で作成します。</p>
+                    
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 mt-4">
+                        <p class="font-bold text-blue-800 mb-1">💡 こんなシーンで大活躍します</p>
+                        <ul class="list-disc pl-5 space-y-1 text-xs">
+                            <li><strong>エアコン:</strong> 追加工事費のぼったくり防止</li>
+                            <li><strong>自動車:</strong> 車検・整備の不要な部品交換防止</li>
+                            <li><strong>賃貸:</strong> 仲介手数料や怪しい初期費用の削減</li>
+                            <li><strong>住宅関連:</strong> オプション工事や諸経費の相場チェック</li>
+                            <li><strong>その他:</strong> 引越し・冠婚葬祭など汎用モード搭載</li>
+                        </ul>
+                    </div>
+                    
+                    <p class="text-center font-bold text-blue-700 pt-2 border-t mt-4">Smart Choiceは、誰もが「安かろう悪かろう」ではなく「本当に良いものを適正価格で」手に入れられる世界を目指す、あなたの心強い味方です。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <main class="flex-grow p-4 overflow-y-auto">
+            <!-- 入力フォームセクション -->
+            <section id="uploadSection" class="space-y-6 fade-in">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h2 class="text-sm font-semibold text-blue-800 mb-2">1. ジャンルを選択</h2>
+                    <select id="categorySelect" name="category" class="w-full p-2 mb-4 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="エアコン">エアコン（本体・工事費など）</option>
+                        <option value="車検・整備">自動車（車検・整備・パーツなど）</option>
+                        <option value="大型家電（冷蔵庫・洗濯機等）">大型家電（冷蔵庫・洗濯機など）</option>
+                        <option value="賃貸（アパート・マンション等）">賃貸（アパート・マンションなど）</option>
+                        <option value="住宅購入・リフォーム">住宅関連（購入・リフォームなど）</option>
+                        <option value="その他">その他</option>
+                    </select>
+
+                    <h2 class="text-sm font-semibold text-blue-800 mb-2">2. 入力方法を選択</h2>
+                    
+                    <div class="flex bg-blue-100 p-1 rounded-xl mb-4">
+                        <button type="button" id="tabPhoto" class="flex-1 py-2 text-sm font-bold bg-white text-blue-700 rounded-lg shadow-sm transition">📷 写真で解析</button>
+                        <button type="button" id="tabText" class="flex-1 py-2 text-sm font-bold text-blue-600 hover:text-blue-800 rounded-lg transition">⌨️ テキストで解析</button>
+                    </div>
+
+                    <form id="uploadForm" class="space-y-4">
+                        <!-- プライバシー保護の注意書き -->
+                        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-xl shadow-sm mb-4">
+                            <p class="text-xs font-bold text-yellow-800 mb-1 flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                プライバシーに関するお願い
+                            </p>
+                            <p class="text-[10px] text-yellow-700 leading-relaxed">
+                                お名前や「番地・部屋番号」などの個人情報は、写真に撮る前に隠していただいて構いません。<br>
+                                ※正確な相場を出すため、<span class="font-bold text-yellow-800 border-b border-yellow-400">「市区町村」</span>までは見える状態にするか、テキストでの補足をお願いいたします。
+                            </p>
+                        </div>
+
+                        <!-- 写真入力エリア -->
+                        <div id="photoInputArea" class="fade-in">
+                            <p id="uploadHint" class="text-xs text-blue-600 mb-4">見積書や、コンセントなどの設置環境の写真を複数選択してください。</p>
+                            
+                            <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition">
+                                <input type="file" id="images" name="files" multiple accept="image/*" 
+                                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            <div class="space-y-2">
+                                <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <p class="text-sm text-gray-600 font-medium">タップして写真を選択</p>
+                                <p class="text-xs text-gray-500" id="fileCount">選択されていません</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 選択した画像のプレビュー表示エリア -->
+                        <div id="imagePreviewContainer" class="hidden flex flex-wrap gap-2 mt-2"></div>
+                    </div>
+
+                        <!-- テキスト入力エリア -->
+                        <div id="textInputArea" class="hidden fade-in space-y-3">
+                            <p class="text-xs text-blue-600 mb-1">見積もりの内容を自由にコピペ・入力してください。</p>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">メーカー・機種名・型番・年式など <span class="text-gray-400 font-normal">（分かる場合のみ）</span></label>
+                                <input type="text" id="manualContextInput" class="w-full p-3 text-sm border-2 border-blue-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" placeholder="例：ダイキン うるさらX 2023年モデル">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">見積もり内容・金額 <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <textarea id="manualTextInput" class="w-full h-32 p-4 pb-14 text-sm border-2 border-blue-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition leading-relaxed" placeholder="入力例：&#13;&#10;・エアコン本体 60,000円&#13;&#10;・標準工事費 15,000円&#13;&#10;・配管延長 8,000円&#13;&#10;・高所作業費 5,000円"></textarea>
+                                    <button type="button" id="micButton" class="absolute bottom-3 right-3 p-3 bg-gray-200 text-gray-600 rounded-full hover:bg-blue-100 hover:text-blue-600 transition focus:outline-none shadow-sm flex items-center justify-center group" title="音声で入力する">
+                                        <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-500 mt-1 text-right">※マイクボタンを押して音声での入力も可能です</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow hover:bg-blue-700 active:transform active:scale-95 transition mt-2">
+                            解析スタート
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ローディング画面 -->
+            <section id="loadingSection" class="hidden flex-col items-center justify-center min-h-[60vh] space-y-6 fade-in">
+                <div class="loader scale-125 mb-4"></div>
+                <div id="loadingText" class="text-base font-bold text-blue-600 animate-pulse text-center">
+                    画像データを送信中...
+                </div>
+            </section>
+
+            <!-- 結果表示セクション -->
+            <section id="resultSection" class="hidden space-y-6 fade-in pb-8">
+                <!-- 総合判定 -->
+                <div id="evaluationCard" class="p-5 rounded-xl text-center shadow-sm border-2">
+                    <h2 class="text-xs font-bold text-gray-500 mb-1">総合判定</h2>
+                    <div id="evaluationText" class="text-2xl font-extrabold"></div>
+                </div>
+
+                <!-- インフラ適合チェック -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                        <h3 class="text-sm font-bold text-gray-700 flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg>
+                            設置環境チェック
+                        </h3>
+                    </div>
+                    <div class="p-4">
+                        <p id="infrastructureCheck" class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap"></p>
+                    </div>
+                </div>
+
+                <!-- 価格分析 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                        <h3 class="text-sm font-bold text-gray-700">価格の内訳</h3>
+                    </div>
+                    <div class="p-3 bg-gray-50 space-y-2" id="priceList">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 削れるポイント -->
+                <div id="unnecessaryCostsSection" class="hidden bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-red-50 px-4 py-2 border-b border-red-100">
+                        <h3 class="text-sm font-bold text-red-700">削れる可能性がある費用</h3>
+                    </div>
+                    <div class="p-4 space-y-3" id="unnecessaryCostsList">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 交渉スクリプト -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-green-50 px-4 py-2 border-b border-green-100">
+                        <h3 class="text-sm font-bold text-green-800">交渉スクリプト（LINE用）</h3>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <textarea id="negotiationScript" class="w-full h-48 p-4 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 leading-relaxed text-gray-800" readonly></textarea>
+                        <button onclick="copyToClipboard()" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center space-x-2 hover:bg-green-700 active:scale-95 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            <span>コピーする</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <button onclick="shareResult()" class="w-full bg-blue-100 text-blue-700 border-2 border-blue-200 font-bold py-3 rounded-xl shadow-sm flex justify-center items-center space-x-2 hover:bg-blue-200 active:scale-95 transition mt-6">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    <span>結果を共有する（LINE等）</span>
+                </button>
+                
+                <button onclick="resetApp()" class="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 transition mt-4">
+                    最初からやり直す
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <!-- トースト通知用 -->
+    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50 text-sm whitespace-nowrap">
+        コピーしました
+    </div>
+
+    <script>
+        // サイドメニューとモーダルの制御
+        const menuButton = document.getElementById('menuButton');
+        const closeMenuButton = document.getElementById('closeMenuButton');
+        const sideMenu = document.getElementById('sideMenu');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const aboutMenuBtn = document.getElementById('aboutMenuBtn');
+        const historyMenuBtn = document.getElementById('historyMenuBtn');
+        const termsMenuBtn = document.getElementById('termsMenuBtn');
+        const feedbackMenuBtn = document.getElementById('feedbackMenuBtn');
+        const aboutModal = document.getElementById('aboutModal');
+        const historyModal = document.getElementById('historyModal');
+        const termsModal = document.getElementById('termsModal');
+        const feedbackModal = document.getElementById('feedbackModal');
+        const closeAboutModal = document.getElementById('closeAboutModal');
+        const closeHistoryModal = document.getElementById('closeHistoryModal');
+        const closeTermsModal = document.getElementById('closeTermsModal');
+        const closeFeedbackModal = document.getElementById('closeFeedbackModal');
+
+        function toggleMenu() {
+            const isClosed = sideMenu.classList.contains('-translate-x-full');
+            if (isClosed) {
+                sideMenu.classList.remove('-translate-x-full');
+                menuOverlay.classList.remove('hidden');
+            } else {
+                sideMenu.classList.add('-translate-x-full');
+                menuOverlay.classList.add('hidden');
+            }
+        }
+
+        menuButton.addEventListener('click', toggleMenu);
+        closeMenuButton.addEventListener('click', toggleMenu);
+        menuOverlay.addEventListener('click', toggleMenu);
+
+        aboutMenuBtn.addEventListener('click', () => {
+            toggleMenu();
+            aboutModal.classList.remove('hidden');
+        });
+        historyMenuBtn.addEventListener('click', () => {
+            toggleMenu();
+            renderHistoryList();
+            historyModal.classList.remove('hidden');
+        });
+        termsMenuBtn.addEventListener('click', () => {
+            toggleMenu();
+            termsModal.classList.remove('hidden');
+        });
+        
+        feedbackMenuBtn.addEventListener('click', () => {
+            toggleMenu();
+            feedbackModal.classList.remove('hidden');
+        });
+
+        closeAboutModal.addEventListener('click', () => aboutModal.classList.add('hidden'));
+        closeHistoryModal.addEventListener('click', () => historyModal.classList.add('hidden'));
+        closeTermsModal.addEventListener('click', () => termsModal.classList.add('hidden'));
+        closeFeedbackModal.addEventListener('click', () => feedbackModal.classList.add('hidden'));
+        
+        // モーダル外クリックで閉じる
+        aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
+        historyModal.addEventListener('click', (e) => { if (e.target === historyModal) historyModal.classList.add('hidden'); });
+        termsModal.addEventListener('click', (e) => { if (e.target === termsModal) termsModal.classList.add('hidden'); });
+        feedbackModal.addEventListener('click', (e) => { if (e.target === feedbackModal) feedbackModal.classList.add('hidden'); });
+
+        // フィードバック送信処理
+        document.getElementById('submitFeedbackBtn').addEventListener('click', async () => {
+            const message = document.getElementById('feedbackMessage').value.trim();
+            if (!message) return;
+            
+            const btn = document.getElementById('submitFeedbackBtn');
+            const status = document.getElementById('feedbackStatus');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader" style="width: 20px; height: 20px; border-width: 3px; margin-right: 8px;"></div>送信中...';
+            status.classList.add('hidden');
+            
+            // スプレッドシート連携用GAS URL
+            const gasUrl = "https://script.google.com/macros/s/AKfycbxYEYlYPpNHzpR0GZGbMJN9hwvOHV83697k-UJThv3DRvaykcevFLQqmx3fFUHGtA06KQ/exec";
+            
+            try {
+                // ダミーURLが含まれている場合の保護処理
+                if (gasUrl.includes("ここにURLを貼り付けてください")) {
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '送信する';
+                        status.textContent = '※連携準備中: GASのURLを設定してください';
+                        status.className = 'mt-3 text-center font-bold text-sm text-yellow-600 block';
+                    }, 1000);
+                    return;
+                }
+                
+                // GASはCORSの関係でプリフライトでエラーになるため、no-corsとtext/plainでシンプルリクエストとして送信する
+                await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                btn.innerHTML = '送信完了！';
+                btn.classList.replace('bg-blue-600', 'bg-green-600');
+                status.textContent = '貴重なご意見ありがとうございました！';
+                status.className = 'mt-3 text-center font-bold text-sm text-green-600 block';
+                
+                setTimeout(() => {
+                    feedbackModal.classList.add('hidden');
+                    document.getElementById('feedbackMessage').value = '';
+                    btn.disabled = false;
+                    btn.innerHTML = '送信する';
+                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                    status.classList.add('hidden');
+                }, 2500);
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '送信する';
+                status.textContent = '通信エラーが発生しました';
+                status.className = 'mt-3 text-center font-bold text-sm text-red-600 block';
+            }
+        });
+
+        // 履歴の保存と読み込み機能
+        function saveHistory(data, category) {
+            let history = JSON.parse(localStorage.getItem('smartChoiceHistory') || '[]');
+            const d = new Date();
+            const formattedDate = d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + '　' + String(d.getHours()).padStart(2, '0') + '：' + String(d.getMinutes()).padStart(2, '0');
+            const newItem = {
+                id: Date.now(),
+                date: formattedDate,
+                category: category,
+                data: data
+            };
+            history.unshift(newItem);
+            if (history.length > 20) history = history.slice(0, 20); // 最新20件を保存
+            localStorage.setItem('smartChoiceHistory', JSON.stringify(history));
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('historyListContainer');
+            const history = JSON.parse(localStorage.getItem('smartChoiceHistory') || '[]');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500 py-10">履歴がありません</p>';
+                return;
+            }
+            
+            container.innerHTML = history.map(item => {
+                let statusIcon = "ℹ️";
+                if (item.data.evaluation && (item.data.evaluation.includes('割高') || item.data.evaluation.includes('危険'))) statusIcon = "⚠️";
+                else if (item.data.evaluation && item.data.evaluation.includes('通り')) statusIcon = "✅";
+                
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-3 hover:border-blue-400 hover:shadow-md transition relative group">
+                    <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="loadHistoryItem(${item.id})">
+                        <span class="text-xs font-bold text-gray-500">${item.date}</span>
+                        <div class="flex items-center space-x-2 mr-8">
+                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700">${item.category}</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-start items-center space-x-2 cursor-pointer" onclick="loadHistoryItem(${item.id})">
+                        <span class="text-base">${statusIcon}</span>
+                        <span class="font-bold text-sm text-gray-800 truncate block w-full pr-8">${item.data.evaluation || '不明'}</span>
+                    </div>
+                    <button onclick="deleteHistoryItem(event, ${item.id})" class="absolute top-4 right-4 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition focus:outline-none" title="この履歴を削除">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+                `;
+            }).join('');
+        }
+
+        window.deleteHistoryItem = function(event, id) {
+            event.stopPropagation();
+            if (confirm('この履歴を削除してもよろしいですか？')) {
+                let history = JSON.parse(localStorage.getItem('smartChoiceHistory') || '[]');
+                history = history.filter(h => h.id !== id);
+                localStorage.setItem('smartChoiceHistory', JSON.stringify(history));
+                renderHistoryList();
+            }
+        };
+
+        window.loadHistoryItem = function(id) {
+            const history = JSON.parse(localStorage.getItem('smartChoiceHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            if (item) {
+                historyModal.classList.add('hidden');
+                renderResult(item.data);
+            }
+        };
+
+        const fileInput = document.getElementById('images');
+        const fileCountText = document.getElementById('fileCount');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const categorySelect = document.getElementById('categorySelect');
+        const uploadHint = document.getElementById('uploadHint');
+
+        categorySelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'エアコン') {
+                uploadHint.textContent = '見積書や、コンセントなどの設置環境の写真を複数選択してください。';
+            } else if (val === '車検・整備') {
+                uploadHint.textContent = '車検や整備の見積書、車検証などの写真を複数選択してください。';
+            } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
+                uploadHint.textContent = '見積書や、搬入経路（階段・ドアなど）の写真を複数選択してください。';
+            } else if (val === '賃貸（アパート・マンション等）') {
+                uploadHint.textContent = '賃貸の初期費用見積書や、物件概要の写真をアップロードしてください。';
+            } else if (val === '住宅購入・リフォーム') {
+                uploadHint.textContent = '住宅の購入やリフォームの見積書、図面などの写真をアップロードしてください。';
+            } else {
+                uploadHint.textContent = '分析したい見積書などの写真を複数選択してください。';
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const count = e.target.files.length;
+            imagePreviewContainer.innerHTML = ''; // 既存のプレビューをクリア
+            
+            if (count > 0) {
+                fileCountText.textContent = `${count}枚の画像が選択されました`;
+                fileCountText.className = "text-sm text-blue-600 font-bold mt-1";
+                imagePreviewContainer.classList.remove('hidden');
+                
+                // 選択された画像をプレビュー表示
+                Array.from(e.target.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = document.createElement('img');
+                        img.src = event.target.result;
+                        img.className = 'w-16 h-16 object-cover rounded-md border border-gray-200 shadow-sm';
+                        imagePreviewContainer.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                fileCountText.textContent = "選択されていません";
+                fileCountText.className = "text-xs text-gray-500";
+                imagePreviewContainer.classList.add('hidden');
+            }
+        });
+
+        // クリップボードからの画像貼り付け（Ctrl+V）に対応
+        document.addEventListener('paste', (e) => {
+            const items = (e.clipboardData || window.clipboardData).items;
+            const dataTransfer = new DataTransfer();
+            let hasImage = false;
+            
+            // すでに選択されている画像があれば保持する
+            if (fileInput.files) {
+                Array.from(fileInput.files).forEach(file => dataTransfer.items.add(file));
+            }
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    const file = new File([blob], `screenshot_${Date.now()}_${i}.png`, { type: blob.type });
+                    dataTransfer.items.add(file);
+                    hasImage = true;
+                }
+            }
+            
+            if (hasImage) {
+                fileInput.files = dataTransfer.files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+
+        const loadingTexts = [
+            "見積もり項目を分解中...",
+            "相場DBと照合中...",
+            "追加工事の有無を判定中...",
+            "交渉台本を生成中..."
+        ];
+        let textInterval;
+
+        const textInputArea = document.getElementById('textInputArea');
+        const manualTextInput = document.getElementById('manualTextInput');
+        let currentInputMode = 'photo'; // 'photo' or 'text'
+
+        tabPhoto.addEventListener('click', () => {
+            currentInputMode = 'photo';
+            tabPhoto.className = "flex-1 py-2 text-sm font-bold bg-white text-blue-700 rounded-lg shadow-sm transition";
+            tabText.className = "flex-1 py-2 text-sm font-bold text-blue-600 hover:text-blue-800 rounded-lg transition";
+            photoInputArea.classList.remove('hidden');
+            textInputArea.classList.add('hidden');
+        });
+
+        tabText.addEventListener('click', () => {
+            currentInputMode = 'text';
+            tabText.className = "flex-1 py-2 text-sm font-bold bg-white text-blue-700 rounded-lg shadow-sm transition";
+            tabPhoto.className = "flex-1 py-2 text-sm font-bold text-blue-600 hover:text-blue-800 rounded-lg transition";
+            textInputArea.classList.remove('hidden');
+            photoInputArea.classList.add('hidden');
+            manualTextInput.focus();
+        });
+
+        // 音声入力の実装
+        const micButton = document.getElementById('micButton');
+        let isRecording = false;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ja-JP';
+            recognition.continuous = true;
+            recognition.interimResults = false; // 確定した文だけを取得
+
+            recognition.onstart = () => {
+                isRecording = true;
+                micButton.classList.remove('bg-gray-200', 'text-gray-600');
+                micButton.classList.add('bg-red-100', 'text-red-600', 'animate-pulse');
+                manualTextInput.placeholder = "（音声を聞き取っています...終了するにはもう一度マイクを押してください）";
+            };
+
+            recognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        const text = event.results[i][0].transcript;
+                        // 末尾に改行がない場合は改行を入れて追加
+                        manualTextInput.value += (manualTextInput.value.endsWith('\\n') || manualTextInput.value === '' ? '' : '\\n') + text + '\\n';
+                        // 一番下までスクロール
+                        manualTextInput.scrollTop = manualTextInput.scrollHeight;
+                    }
+                }
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                micButton.classList.remove('bg-red-100', 'text-red-600', 'animate-pulse');
+                micButton.classList.add('bg-gray-200', 'text-gray-600');
+                manualTextInput.placeholder = "入力例：\\n・エアコン本体 60,000円\\n・標準工事費 15,000円\\n・配管延長 8,000円\\n・高所作業費 5,000円";
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                isRecording = false;
+                micButton.classList.remove('bg-red-100', 'text-red-600', 'animate-pulse');
+                micButton.classList.add('bg-gray-200', 'text-gray-600');
+            };
+
+            micButton.addEventListener('click', () => {
+                if (isRecording) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+        } else {
+            micButton.addEventListener('click', () => {
+                alert('お使いのブラウザは音声入力に対応していません。SafariやChromeなどの最新版をご利用ください。');
+            });
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (currentInputMode === 'photo' && fileInput.files.length === 0) {
+                alert('写真を選択してください。');
+                return;
+            }
+            if (currentInputMode === 'text' && manualTextInput.value.trim() === '') {
+                alert('見積もりの内容をテキストで入力してください。');
+                return;
+            }
+
+            document.getElementById('uploadSection').classList.add('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.remove('hidden');
+            document.getElementById('loadingSection').classList.add('flex');
+
+            const textEl = document.getElementById('loadingText');
+            let textIdx = 0;
+            textEl.textContent = loadingTexts[textIdx];
+            textInterval = setInterval(() => {
+                textIdx = (textIdx + 1) % loadingTexts.length;
+                textEl.textContent = loadingTexts[textIdx];
+            }, 2500);
+
+            const formData = new FormData();
+            formData.append('category', categorySelect.value);
+            
+            if (currentInputMode === 'photo') {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    try {
+                        const compressedFile = await compressImage(file);
+                        formData.append('files', compressedFile);
+                    } catch (error) {
+                        formData.append('files', file);
+                    }
+                }
+            } else {
+                let textData = manualTextInput.value;
+                const contextVal = document.getElementById('manualContextInput').value.trim();
+                if (contextVal) {
+                    textData = "【機種・環境情報】\n" + contextVal + "\n\n【見積もり内容】\n" + textData;
+                }
+                formData.append('text_input', textData);
+            }
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                clearInterval(textInterval);
+                
+                if (data.status === 'success' || !data.message) {
+                    saveHistory(data, categorySelect.value); // 履歴を保存
+                    renderResult(data);
+                } else {
+                    alert('エラーが発生しました: ' + data.message);
+                    resetApp();
+                }
+            } catch (error) {
+                clearInterval(textInterval);
+                console.error(error);
+                alert('通信エラーが発生しました。バックエンドが起動しているか確認してください。');
+                resetApp();
+            }
+        });
+
+        function renderResult(data) {
+            window.currentResultData = data;
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.remove('flex');
+            document.getElementById('resultSection').classList.remove('hidden');
+
+            const evalCard = document.getElementById('evaluationCard');
+            const evalText = document.getElementById('evaluationText');
+            const evalValue = data.evaluation || "不明";
+            evalText.textContent = evalValue;
+            
+            evalCard.className = "p-5 rounded-xl text-center shadow-sm border-2";
+            if (evalValue.includes('割高') || evalValue.includes('危険')) {
+                evalCard.classList.add('border-red-400', 'bg-red-50', 'text-red-700');
+            } else if (evalValue.includes('やや')) {
+                evalCard.classList.add('border-yellow-400', 'bg-yellow-50', 'text-yellow-700');
+            } else {
+                evalCard.classList.add('border-blue-400', 'bg-blue-50', 'text-blue-700');
+            }
+
+            const infraText = document.getElementById('infrastructureCheck');
+            const infraValue = data.infrastructure_check || "チェック結果なし";
+            infraText.textContent = infraValue;
+            if (infraValue.includes('警告') || infraValue.includes('危険')) {
+                infraText.classList.add('text-red-600', 'font-medium');
+            } else {
+                infraText.classList.remove('text-red-600', 'font-medium');
+            }
+
+            const priceList = document.getElementById('priceList');
+            priceList.innerHTML = '';
+            if (data.price_analysis && data.price_analysis.itemized_list) {
+                data.price_analysis.itemized_list.forEach(item => {
+                    const isWarning = item.status && (item.status.includes('割高') || item.status.includes('不要'));
+                    const statusColor = isWarning ? 'text-red-700 bg-red-100 border-red-200' : 'text-green-700 bg-green-100 border-green-200';
+                    const icon = isWarning ? '⚠️' : '✅';
+                    
+                    const div = document.createElement('div');
+                    div.className = "flex flex-col p-3 border rounded-lg shadow-sm bg-white";
+                    div.innerHTML = `
+                        <div class="font-bold text-gray-800 text-sm mb-2">${item.item}</div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-900 font-bold text-sm tracking-wide">¥${Number(item.price).toLocaleString()}</span>
+                            <span class="px-2 py-1 text-[11px] font-bold rounded-full border ${statusColor} shadow-sm">${icon} ${item.status}</span>
+                        </div>
+                    `;
+                    priceList.appendChild(div);
+                });
+            }
+
+            const unnecSec = document.getElementById('unnecessaryCostsSection');
+            const unnecList = document.getElementById('unnecessaryCostsList');
+            unnecList.innerHTML = '';
+            
+            if (data.price_analysis && data.price_analysis.unnecessary_costs && data.price_analysis.unnecessary_costs.length > 0) {
+                unnecSec.classList.remove('hidden');
+
+                // 合計金額の計算
+                const totalSavings = data.price_analysis.unnecessary_costs.reduce((sum, item) => sum + (Number(item.potential_saving) || 0), 0);
+                
+                // 合計金額ブロックの追加
+                const totalDiv = document.createElement('div');
+                totalDiv.className = "bg-red-50 border-2 border-red-300 p-4 rounded-xl mb-4 text-center shadow-sm";
+                totalDiv.innerHTML = `
+                    <p class="text-xs font-bold text-red-800 mb-1">交渉で削れる見込みの合計額</p>
+                    <p class="text-3xl font-black text-red-600 tracking-tight">-¥${totalSavings.toLocaleString()}</p>
+                `;
+                unnecList.appendChild(totalDiv);
+
+                // 内訳のラベル
+                const breakdownLabel = document.createElement('p');
+                breakdownLabel.className = "text-xs font-bold text-gray-500 mt-2 mb-2 ml-1";
+                breakdownLabel.textContent = "▼ 削減できる内訳と理由";
+                unnecList.appendChild(breakdownLabel);
+
+                data.price_analysis.unnecessary_costs.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "bg-white border border-red-200 p-3 rounded-lg shadow-sm";
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-gray-800">${item.item}</span>
+                            <span class="font-bold text-red-600">-¥${Number(item.potential_saving).toLocaleString()}</span>
+                        </div>
+                        <p class="text-xs text-gray-600 leading-relaxed">${item.reason}</p>
+                    `;
+                    unnecList.appendChild(div);
+                });
+            } else {
+                unnecSec.classList.add('hidden');
+            }
+
+            document.getElementById('negotiationScript').value = data.negotiation_script_line || "";
+        }
+
+        function copyToClipboard() {
+            const scriptText = document.getElementById('negotiationScript').value;
+            navigator.clipboard.writeText(scriptText).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.remove('opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('opacity-0');
+                }, 2000);
+            });
+        }
+
+        function shareResult() {
+            if (!window.currentResultData) return;
+            const data = window.currentResultData;
+            
+            let shareText = "【Smart Choice 解析結果】\n";
+            shareText += "判定: " + (data.evaluation || "不明") + "\n";
+            
+            if (data.price_analysis && data.price_analysis.unnecessary_costs && data.price_analysis.unnecessary_costs.length > 0) {
+                const totalSavings = data.price_analysis.unnecessary_costs.reduce((sum, item) => sum + (Number(item.potential_saving) || 0), 0);
+                shareText += "💰 削減見込み: 約" + totalSavings.toLocaleString() + "円\n\n";
+            } else {
+                shareText += "\n";
+            }
+            
+            shareText += "▼ アプリで詳細を見る\n" + window.location.href;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Smart Choice 解析結果',
+                    text: shareText
+                }).catch((error) => console.log('共有キャンセル:', error));
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    alert('共有テキストをクリップボードにコピーしました。LINE等に貼り付けて共有してください。');
+                });
+            }
+        }
+
+        function resetApp() {
+            document.getElementById('uploadForm').reset();
+            fileCountText.textContent = "選択されていません";
+            fileCountText.className = "text-xs text-gray-500";
+            if (typeof imagePreviewContainer !== 'undefined') {
+                imagePreviewContainer.innerHTML = '';
+                imagePreviewContainer.classList.add('hidden');
+            }
+            
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('uploadSection').classList.remove('hidden');
+        }
+
+        // 高画質な写真をAIの無料枠に合わせて自動圧縮する機能
+        async function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1200; // AIが文字を読める最適なサイズ
+                        const MAX_HEIGHT = 1200;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        canvas.toBlob((blob) => {
+                            if (!blob) {
+                                reject(new Error('圧縮失敗'));
+                                return;
+                            }
+                            const newFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(newFile);
+                        }, 'image/jpeg', 0.7); // 70%の画質で圧縮しデータ量を激減
+                    };
+                    img.onerror = error => reject(error);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+    </script>
+</body>
+</html>
