@@ -233,11 +233,11 @@
                 <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
                     <h2 class="text-sm font-semibold text-blue-800 mb-2">1. ジャンルを選択</h2>
                     <select id="categorySelect" name="category" class="w-full p-2 mb-4 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="エアコン">エアコン（本体・工事費など）</option>
-                        <option value="車検・整備">自動車（車検・整備・パーツなど）</option>
+                        <option value="エアコン">エアコン・清掃（本体・工事費・ハウスクリーニングなど）</option>
+                        <option value="車検・整備">自動車（車検・整備・買取査定など）</option>
+                        <option value="引越し・不用品回収">引越し・不用品回収（引越し・買取など）</option>
+                        <option value="住宅関連">住宅関連（リフォーム・外壁塗装・修繕など）</option>
                         <option value="大型家電（冷蔵庫・洗濯機等）">大型家電（冷蔵庫・洗濯機など）</option>
-                        <option value="賃貸（アパート・マンション等）">賃貸（アパート・マンションなど）</option>
-                        <option value="住宅購入・リフォーム">住宅関連（購入・リフォームなど）</option>
                         <option value="その他">その他</option>
                     </select>
 
@@ -619,12 +619,12 @@
                 uploadHint.textContent = 'ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。';
             } else if (val === '車検・整備') {
                 uploadHint.textContent = '車検や整備の見積書、車検証などの写真を複数選択してください。';
+            } else if (val === '引越し・不用品回収') {
+                uploadHint.textContent = '引越しや不用品回収の見積書などの写真を複数選択してください。';
+            } else if (val === '住宅関連') {
+                uploadHint.textContent = 'リフォームや外壁塗装、修繕の見積書などの写真を複数選択してください。';
             } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
                 uploadHint.textContent = '見積書や、搬入経路（階段・ドアなど）の写真を複数選択してください。';
-            } else if (val === '賃貸（アパート・マンション等）') {
-                uploadHint.textContent = '賃貸の初期費用見積書や、物件概要の写真をアップロードしてください。';
-            } else if (val === '住宅購入・リフォーム') {
-                uploadHint.textContent = '住宅の購入やリフォームの見積書、図面などの写真をアップロードしてください。';
             } else {
                 uploadHint.textContent = '分析したい見積書などの写真を複数選択してください。';
             }
