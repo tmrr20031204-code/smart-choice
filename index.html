@@ -955,6 +955,29 @@
                 affiliateSec.className = "fade-in bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl overflow-visible shadow-sm relative mb-6";
             }
 
+            // カテゴリに応じたアフィリエイトリンクの動的設定
+            const selectedCategory = document.getElementById('categorySelect').value;
+            const affiliateLinkBtn = document.getElementById('affiliateLink');
+            
+            // ユーザーから個別のURLが提供されるまでの暫定URL（楽天アフィリエイト）
+            const DEFAULT_URL = "https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3Dhttp%253A%252F%252Fwww.rakuten.co.jp%252F%26m%3Dhttp%253A%252F%252Fm.rakuten.co.jp%252F";
+            
+            const affiliateLinks = {
+                'エアコン': { url: DEFAULT_URL, text: '✅ 優良業者で相見積もり（無料）' },
+                '車検・整備': { url: DEFAULT_URL, text: '✅ 楽天Car車検で無料見積もり' },
+                '引越し・不用品回収': { url: DEFAULT_URL, text: '✅ 引越し一括見積もり（無料）' },
+                '住宅関連': { url: DEFAULT_URL, text: '✅ リフォーム優良業者を探す（無料）' },
+                '大型家電（冷蔵庫・洗濯機等）': { url: DEFAULT_URL, text: '✅ 最安値の販売店を探す' },
+                'その他': { url: DEFAULT_URL, text: '✅ 優良業者の一括見積もり（無料）' }
+            };
+
+            const linkData = affiliateLinks[selectedCategory] || affiliateLinks['その他'];
+            affiliateLinkBtn.href = linkData.url;
+            affiliateLinkBtn.innerHTML = `
+                <span>${linkData.text}</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            `;
+
             const infraText = document.getElementById('infrastructureCheck');
             const infraValue = data.infrastructure_check || "チェック結果なし";
             infraText.textContent = infraValue;
