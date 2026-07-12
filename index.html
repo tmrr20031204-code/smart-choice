@@ -967,7 +967,8 @@
             }
 
             // カテゴリに応じたアフィリエイトリンクの動的設定
-            const selectedCategory = document.getElementById('categorySelect').value;
+            // 履歴から呼び出した場合やサーバーからの返り値がある場合はそちらを優先
+            const selectedCategory = data.category || document.getElementById('categorySelect').value;
             const affiliateLinkBtn = document.getElementById('affiliateLink');
             
             // ユーザーから個別のURLが提供されるまでの暫定URL（楽天アフィリエイト）
@@ -977,6 +978,7 @@
                 'エアコン': { url: DEFAULT_URL, text: '✅ 優良業者で相見積もり（無料）' },
                 '車検・整備': { url: DEFAULT_URL, text: '✅ 楽天Car車検で無料見積もり' },
                 '引越し': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' },
+                '引越し・不用品回収': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' }, // 後方互換・キャッシュ対策
                 '不用品買取': { url: "https://px.a8.net/svt/ejp?a8mat=4B7X59+2OG8S2+35HU+60H7N", text: '✅ 福ちゃんで不用品の無料査定を申し込む' },
                 '住宅関連': { url: "https://px.a8.net/svt/ejp?a8mat=4B7X59+49LUUQ+410U+5YZ77", text: '✅ ヌリカエで外壁塗装の相場をチェック（無料）' },
                 '大型家電（冷蔵庫・洗濯機等）': { url: DEFAULT_URL, text: '✅ 最安値の販売店を探す' },
