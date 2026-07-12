@@ -852,7 +852,7 @@
                 return;
             }
             
-            if (currentInputMode === 'photo' && fileInput.files.length === 0) {
+            if (currentInputMode === 'photo' && globalSelectedFiles.length === 0) {
                 alert('写真を選択してください。');
                 return;
             }
