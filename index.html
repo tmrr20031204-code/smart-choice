@@ -565,22 +565,53 @@
             
             container.innerHTML = history.map(item => {
                 let statusIcon = "ℹ️";
-                if (item.data.evaluation && (item.data.evaluation.includes('危険') || item.data.evaluation.includes('割高'))) statusIcon = "⚠️";
-                else if (item.data.evaluation && (item.data.evaluation.includes('通り') || item.data.evaluation.includes('割安') || item.data.evaluation.includes('買い得'))) statusIcon = "✅";
+                let statusTextColor = "text-gray-800";
+                if (item.data.evaluation && (item.data.evaluation.includes('危険') || item.data.evaluation.includes('割高') || item.data.evaluation.includes('要注意'))) {
+                    statusIcon = "⚠️";
+                    statusTextColor = "text-red-600";
+                }
+                else if (item.data.evaluation && (item.data.evaluation.includes('通り') || item.data.evaluation.includes('割安') || item.data.evaluation.includes('買い得') || item.data.evaluation.includes('安心'))) {
+                    statusIcon = "✅";
+                    statusTextColor = "text-green-600";
+                }
+
+                // 品名の取得（最初の項目＋他〇件）
+                let itemName = "品名不明";
+                if (item.data.price_details && item.data.price_details.length > 0) {
+                    itemName = item.data.price_details[0].item;
+                    if (item.data.price_details.length > 1) {
+                        itemName += ` ほか${item.data.price_details.length - 1}件`;
+                    }
+                }
+
+                // 合計金額の取得とフォーマット
+                let totalAmount = "金額不明";
+                if (item.data.total_amount !== undefined) {
+                    if (typeof item.data.total_amount === 'number') {
+                        totalAmount = item.data.total_amount.toLocaleString() + '円';
+                    } else {
+                        totalAmount = String(item.data.total_amount).replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
+                        if (!totalAmount.includes('円')) totalAmount += '円';
+                    }
+                }
                 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-3 hover:border-blue-400 hover:shadow-md transition relative group">
                     <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="loadHistoryItem(${item.id})">
-                        <span class="text-xs font-bold text-gray-500">${item.date}</span>
-                        <div class="flex items-center space-x-2 mr-8">
-                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700">${item.category}</span>
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700">${item.category}</span>
+                        <span class="text-xs font-medium text-gray-400 pr-6">${item.date}</span>
+                    </div>
+                    <div class="cursor-pointer" onclick="loadHistoryItem(${item.id})">
+                        <div class="font-bold text-gray-700 text-sm mb-2 line-clamp-1 pr-6">${itemName}</div>
+                        <div class="flex justify-between items-end mt-1">
+                            <div class="font-bold text-lg tracking-tight text-gray-900">${totalAmount}</div>
+                            <div class="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded-lg">
+                                <span class="text-sm">${statusIcon}</span>
+                                <span class="font-bold text-xs ${statusTextColor}">${item.data.evaluation || '不明'}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex justify-start items-center space-x-2 cursor-pointer" onclick="loadHistoryItem(${item.id})">
-                        <span class="text-base">${statusIcon}</span>
-                        <span class="font-bold text-sm text-gray-800 truncate block w-full pr-8">${item.data.evaluation || '不明'}</span>
-                    </div>
-                    <button onclick="deleteHistoryItem(event, ${item.id})" class="absolute top-4 right-4 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition focus:outline-none" title="この履歴を削除">
+                    <button onclick="deleteHistoryItem(event, ${item.id})" class="absolute top-4 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition focus:outline-none" title="この履歴を削除">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
                 </div>
