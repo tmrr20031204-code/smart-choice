@@ -577,21 +577,21 @@
 
                 // 品名の取得（最初の項目＋他〇件）
                 let itemName = "品名不明";
-                if (item.data.price_details && item.data.price_details.length > 0) {
-                    itemName = item.data.price_details[0].item;
-                    if (item.data.price_details.length > 1) {
-                        itemName += ` ほか${item.data.price_details.length - 1}件`;
-                    }
-                }
-
-                // 合計金額の取得とフォーマット
                 let totalAmount = "金額不明";
-                if (item.data.total_amount !== undefined) {
-                    if (typeof item.data.total_amount === 'number') {
-                        totalAmount = item.data.total_amount.toLocaleString() + '円';
-                    } else {
-                        totalAmount = String(item.data.total_amount).replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
-                        if (!totalAmount.includes('円')) totalAmount += '円';
+
+                if (item.data.price_analysis && item.data.price_analysis.itemized_list && item.data.price_analysis.itemized_list.length > 0) {
+                    const list = item.data.price_analysis.itemized_list;
+                    itemName = list[0].item;
+                    if (list.length > 1) {
+                        itemName += ` ほか${list.length - 1}件`;
+                    }
+                    
+                    // 合計金額の算出
+                    const sum = list.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
+                    if (sum > 0) {
+                        totalAmount = sum.toLocaleString() + '円';
+                    } else if (list[0].price) {
+                        totalAmount = Number(list[0].price).toLocaleString() + '円';
                     }
                 }
                 
