@@ -1227,6 +1227,29 @@
             document.getElementById('imageModal').classList.add('hidden');
             document.getElementById('modalImage').src = '';
         }
+
+        // シェア機能の実装
+        const shareBtn = document.getElementById('shareButton');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', async () => {
+                const shareData = {
+                    title: 'Smart Choice (スマートチョイス)',
+                    text: '悪徳業者のボッタクリを見抜いて、適正な相場を教えてくれるAIアプリ「Smart Choice」！',
+                    url: window.location.origin
+                };
+                try {
+                    if (navigator.share) {
+                        await navigator.share(shareData);
+                    } else {
+                        // Web Share API非対応の場合はクリップボードにコピー
+                        await navigator.clipboard.writeText(shareData.url);
+                        alert("URLをコピーしました！");
+                    }
+                } catch (err) {
+                    console.error('シェアエラー:', err);
+                }
+            });
+        }
     </script>
 </body>
 </html>
