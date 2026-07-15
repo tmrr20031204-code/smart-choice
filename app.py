@@ -1,7 +1,7 @@
 import os
 import json
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 import google.generativeai as genai
 from typing import List, Optional
 
@@ -74,6 +74,13 @@ SYSTEM_INSTRUCTION = """
 async def get_index():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
+
+@app.get("/icon.png")
+async def get_icon():
+    icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path)
+    raise HTTPException(status_code=404, detail="Icon not found")
 
 @app.post("/api/analyze")
 async def analyze_images(
