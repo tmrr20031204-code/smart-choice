@@ -82,6 +82,13 @@ async def get_icon():
         return FileResponse(icon_path)
     raise HTTPException(status_code=404, detail="Icon not found")
 
+@app.get("/manifest.json")
+async def get_manifest():
+    manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path)
+    raise HTTPException(status_code=404, detail="Manifest not found")
+
 @app.post("/api/analyze")
 async def analyze_images(
     files: Optional[List[UploadFile]] = File(None),
