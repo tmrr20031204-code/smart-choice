@@ -59,6 +59,7 @@ SYSTEM_INSTRUCTION = """
 {
   "status": "success",
   "evaluation": "上記の評価基準のいずれかの文字列",
+  "estimated_total_market_price": "見積もり対象全体としての本来の適正な相場価格（例: '約15万円〜20万円'）",
   "infrastructure_check": "スマホでサクッと読めるインフラ適合確認結果と警告事項",
   "price_analysis": {
     "itemized_list": [ {"item": "項目名", "price": 0, "status": "相場通り/割高"} ],
