@@ -280,28 +280,40 @@
                         </div>
 
                         <!-- 写真入力エリア -->
-                        <div id="photoInputArea" class="fade-in">
-                            <p id="uploadHint" class="text-xs text-blue-600 mb-4">ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。</p>
-                            
-                            <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition">
-                                <input type="file" id="images" name="files" multiple accept="image/*" 
-                                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                            <div class="space-y-2">
-                                <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                                <p class="text-sm text-gray-600 font-medium">タップして写真を選択</p>
-                                <p class="text-xs text-gray-500" id="fileCount">選択されていません</p>
+                        <div id="photoInputArea" class="fade-in space-y-4">
+                            <div>
+                                <p id="uploadHint" class="text-xs text-blue-600 mb-2">ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。</p>
+                                
+                                <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition">
+                                    <input type="file" id="images" name="files" multiple accept="image/*" 
+                                           class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                    <div class="space-y-2">
+                                        <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                        <p class="text-sm text-gray-600 font-medium">タップして写真を選択</p>
+                                        <p class="text-xs text-gray-500" id="fileCount">選択されていません</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 選択した画像のプレビュー表示エリア -->
+                                <div id="imagePreviewContainer" class="hidden flex flex-wrap gap-2 mt-2"></div>
+                                <button type="button" id="clearPhotosBtn" class="hidden w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold mt-2 hover:bg-red-100 transition flex items-center justify-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    選択した写真をやり直す（キャンセル）
+                                </button>
+                            </div>
+
+                            <!-- 写真補足用テキストエリア -->
+                            <div class="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                                <label class="block text-xs font-bold text-gray-700 mb-1 flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    補足情報（任意）
+                                </label>
+                                <p class="text-[10px] text-gray-500 mb-2">※写真に値段や型番がない場合、ここで入力するとAIが正確に判断できます。</p>
+                                <textarea id="photoSupplementaryInput" class="w-full h-20 p-2 text-sm border border-blue-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" placeholder="例：値段は12万円と言われました。型番はルンバi7です。"></textarea>
                             </div>
                         </div>
-                        
-                        <!-- 選択した画像のプレビュー表示エリア -->
-                        <div id="imagePreviewContainer" class="hidden flex flex-wrap gap-2 mt-2"></div>
-                        <button type="button" id="clearPhotosBtn" class="hidden w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold mt-2 hover:bg-red-100 transition flex items-center justify-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            選択した写真をやり直す（キャンセル）
-                        </button>
-                    </div>
 
                         <!-- テキスト入力エリア -->
                         <div id="textInputArea" class="hidden fade-in space-y-3">
@@ -905,6 +917,11 @@
                     } catch (error) {
                         formData.append('files', file);
                     }
+                }
+                // 写真モードの場合でも、補足テキストがあれば追加する
+                const photoSupp = document.getElementById('photoSupplementaryInput').value.trim();
+                if (photoSupp) {
+                    formData.append('text_input', "【写真の補足情報】\n" + photoSupp);
                 }
             } else {
                 let textData = manualTextInput.value;
