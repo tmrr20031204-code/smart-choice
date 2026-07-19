@@ -82,6 +82,13 @@ async def get_icon():
         return FileResponse(icon_path)
     raise HTTPException(status_code=404, detail="Icon not found")
 
+@app.get("/app_icon_v2.png")
+async def get_icon_v2():
+    icon_path = os.path.join(os.path.dirname(__file__), "app_icon_v2.png")
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path)
+    raise HTTPException(status_code=404, detail="Icon not found")
+
 @app.get("/manifest.json")
 async def get_manifest():
     manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")

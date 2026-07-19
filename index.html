@@ -6,8 +6,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Choice">
-    <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="apple-touch-icon" href="/icon.png">
+    <link rel="icon" href="/app_icon_v2.png" type="image/png">
+    <link rel="apple-touch-icon" href="/app_icon_v2.png">
     <link rel="manifest" href="/manifest.json">
     <title>Smart Choice</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -64,6 +64,10 @@
                 </button>
             </div>
             <div class="flex-grow overflow-y-auto py-2">
+                <button id="installAppBtn" class="w-full text-left px-4 py-3 bg-blue-50 text-blue-800 font-bold hover:bg-blue-100 transition flex items-center space-x-2 border-l-4 border-blue-500 mb-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <span>📱 スマホのホーム画面に追加</span>
+                </button>
                 <button id="historyMenuBtn" class="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 font-medium transition flex items-center space-x-2 border-l-4 border-transparent hover:border-blue-500">
                     <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <span>過去の履歴</span>
@@ -1245,6 +1249,32 @@
                     }
                 } catch (err) {
                     console.error('シェアエラー:', err);
+                }
+            });
+        }
+
+        // PWAインストールプロンプトの制御
+        let deferredPrompt;
+        const installAppBtn = document.getElementById('installAppBtn');
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        if (installAppBtn) {
+            installAppBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                } else {
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                    if (isIOS) {
+                        alert("iPhoneの場合は、画面下の「共有ボタン（四角から上矢印が飛び出たマーク）」を押し、「ホーム画面に追加」を選択してください！");
+                    } else {
+                        alert("すでにインストールされているか、ブラウザが対応していません。Chromeのメニュー（︙）から「ホーム画面に追加」または「アプリをインストール」をお試しください。");
+                    }
                 }
             });
         }
