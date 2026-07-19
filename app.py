@@ -66,7 +66,8 @@ SYSTEM_INSTRUCTION = """
     "unnecessary_costs": [ {"item": "項目名", "potential_saving": 0, "reason": "理由"} ]
   },
   "negotiation_script_line": "LINE用コピペテキスト",
-  "negotiation_script_shop": ["店頭用カンペ1", "店頭用カンペ2"]
+  "negotiation_script_shop": ["店頭用カンペ1", "店頭用カンペ2"],
+  "search_keyword": "楽天市場等で最安値を探すための最適な商品名やキーワード（例: 'ルンバ i7', 'エアコン 本体'）。特定の商品がない場合は空文字"
 }
 """
 
