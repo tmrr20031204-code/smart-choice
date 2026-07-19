@@ -96,6 +96,13 @@ async def get_manifest():
         return FileResponse(manifest_path)
     raise HTTPException(status_code=404, detail="Manifest not found")
 
+@app.get("/sw.js")
+async def get_sw():
+    sw_path = os.path.join(os.path.dirname(__file__), "sw.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Service Worker not found")
+
 @app.post("/api/analyze")
 async def analyze_images(
     files: Optional[List[UploadFile]] = File(None),
