@@ -151,6 +151,7 @@ async def analyze_images(
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
         models_to_try = [
+            "gemini-flash-latest",
             "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-2.5-flash",
