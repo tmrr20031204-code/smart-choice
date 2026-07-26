@@ -1102,8 +1102,16 @@
             const rakutenCarUrl = encodeURIComponent("https://car.rakuten.co.jp/shaken/");
             const CAR_URL = `https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3D${rakutenCarUrl}%26m%3D${rakutenCarUrl}`;
 
+            // エアコンジャンル専用の動的リンク分岐（本体購入 vs 清掃・修理）
+            let acUrl = "https://px.a8.net/svt/ejp?a8mat=4B89KX+5TKLPU+4HQS+5ZMCI";
+            let acText = '✅ ユアマイスターでプロの料金を比較（無料）';
+            if (selectedCategory === 'エアコン' && data.search_keyword && data.search_keyword.trim() !== "") {
+                acUrl = DEFAULT_URL;
+                acText = defaultText;
+            }
+
             const affiliateLinks = {
-                'エアコン': { url: "https://px.a8.net/svt/ejp?a8mat=4B89KX+5TKLPU+4HQS+5ZMCI", text: '✅ ユアマイスターでプロの料金を比較（無料）' },
+                'エアコン': { url: acUrl, text: acText },
                 '車検・整備': { url: CAR_URL, text: '✅ 楽天Car車検で無料見積もり' },
                 '引越し': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' },
                 '引越し・不用品回収': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' }, 
