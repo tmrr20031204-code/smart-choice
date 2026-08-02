@@ -301,18 +301,30 @@
                     <h2 class="text-sm font-semibold text-blue-800 mb-2">1. ジャンルを選択 <span class="text-red-500 text-xs">（※必須）</span></h2>
                     <select id="categorySelect" name="category" class="w-full p-2 mb-4 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="" disabled selected>▼ ジャンルを選択してください</option>
-                        <option value="エアコン">エアコン（本体・工事費・クリーニングなど）</option>
-                        <option value="ハウスクリーニング">ハウスクリーニング（水回り・お部屋など）</option>
-                        <option value="車検・整備">自動車（車検・整備・買取査定など）</option>
-                        <option value="引越し">引越し（引越し業者・比較など）</option>
-                        <option value="不用品買取">不用品買取（着物・骨董品・廃品回収など）</option>
-                        <option value="住宅関連">住宅関連（リフォーム・外壁塗装・修繕など）</option>
-                        <option value="プロパンガス">プロパンガス（ガス料金の見直しなど）</option>
-                        <option value="電気料金">電気料金（電力会社の乗り換えなど）</option>
-                        <option value="大型家電（冷蔵庫・洗濯機等）">大型家電（冷蔵庫・洗濯機など）</option>
-                        <option value="スマホ修理・購入">スマホ修理・購入（高額な修理代や新品購入の見直し）</option>
-                        <option value="保険">保険（火災・生命・自動車保険など）</option>
-                        <option value="その他">その他</option>
+                        
+                        <optgroup label="🏠 住まい・インフラ">
+                            <option value="住宅関連">リフォーム・外壁塗装・修繕など</option>
+                            <option value="引越し">引越し（業者比較・お見積りなど）</option>
+                            <option value="プロパンガス">プロパンガス（ガス料金の見直しなど）</option>
+                            <option value="電気料金">電気料金（電力会社の乗り換えなど）</option>
+                        </optgroup>
+
+                        <optgroup label="✨ 暮らし・清掃・買取">
+                            <option value="エアコン">エアコン（本体・工事・クリーニングなど）</option>
+                            <option value="ハウスクリーニング">ハウスクリーニング（水回り・お部屋など）</option>
+                            <option value="不用品買取">不用品買取（着物・骨董品・廃品回収など）</option>
+                        </optgroup>
+
+                        <optgroup label="📱 家電・デジタル">
+                            <option value="スマホ修理・購入">スマホ修理・購入（高額修理や新品購入の見直し）</option>
+                            <option value="大型家電（冷蔵庫・洗濯機等）">大型家電（冷蔵庫・洗濯機など）</option>
+                        </optgroup>
+
+                        <optgroup label="🚗 自動車・保険・その他">
+                            <option value="車検・整備">自動車（車検・整備・買取査定など）</option>
+                            <option value="保険">保険（火災・生命・自動車保険など）</option>
+                            <option value="その他">その他</option>
+                        </optgroup>
                     </select>
 
                     <h2 class="text-sm font-semibold text-blue-800 mb-2">2. 入力方法を選択</h2>
