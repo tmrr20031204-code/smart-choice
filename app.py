@@ -146,6 +146,12 @@ async def analyze_images(
             category_instruction = "【分析対象: 住宅購入・リフォーム】住宅業者の法外な料金からユーザーを守るため、不明瞭な「諸経費」「書類作成代」「ローン代行手数料」、または相場を大きく超える「オプション工事費」「仲介手数料」を指摘してください。ただし、耐震や構造上の安全性に関わる必須の費用は削らないよう注意してください。"
         elif category == "保険":
             category_instruction = "【分析対象: 保険】不要な特約や、重複している補償内容がないか確認してください。※特別ルール: 画像が「自動車保険」「生命保険」「火災保険」のどれに該当するかを判別し、その結果（例: '自動車保険'）を必ず search_keyword フィールドに出力してください。"
+        elif category == "プロパンガス":
+            category_instruction = "【分析対象: プロパンガス（LPガス）】基本料金や従量単価（1m3あたり）が地域の適正相場と比較して高すぎないか確認してください。不透明な値上げや不当な請求がないか厳しくチェックしてください。"
+        elif category == "電気料金":
+            category_instruction = "【分析対象: 電気料金】基本料金や電力量料金（kWh単価）、燃料費調整額などが高すぎないか、または市場連動型プランで高騰していないか確認してください。地域の適正な新電力（固定単価等）と比較して、乗り換えた方がユーザーにとってお得かアドバイスしてください。"
+        elif category == "スマホ修理・購入":
+            category_instruction = "【分析対象: スマホ修理・購入】最新機種の新品購入や正規店の高額な修理代（画面割れ、バッテリー交換など）の金額が適正か、または「高品質な中古スマホを購入する」という別の選択肢（相場）と比較して、ユーザーにとってどちらが賢い選択かアドバイスしてください。"
         else:
             category_instruction = f"【分析対象: {category}】カテゴリに応じた一般的な適正価格と品質維持の観点から分析してください。"
 
@@ -200,31 +206,57 @@ async def analyze_images(
                 return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
             
             try:
-                return json.loads(response.text)
+                result_json = json.loads(response.text)
             except json.JSONDecodeError:
                 return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
-
-        # === Step 2: 検索結果をJSONフォーマットに整形 ===
-        formatting_prompt = f"以下の「分析レポート」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。レポート内の事実に基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
+        else:
+            # === Step 2: 検索結果をJSONフォーマットに整形 ===
+            formatting_prompt = f"以下の「分析レポート」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。レポート内の事実に基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
+            
+            response = None
+            for model_name in models_to_try:
+                try:
+                    json_model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=SYSTEM_INSTRUCTION,
+                        generation_config={"response_mime_type": "application/json"}
+                    )
+                    response = json_model.generate_content(formatting_prompt)
+                    break
+                except Exception:
+                    continue
+                        
+            if not response:
+                return {"status": "error", "message": "解析中にAIモデルの利用制限に達しました。"}
+            
+            # 応答テキストをJSONとしてパース
+            result_json = json.loads(response.text)
         
-        response = None
-        for model_name in models_to_try:
-            try:
-                json_model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    generation_config={"response_mime_type": "application/json"}
-                )
-                response = json_model.generate_content(formatting_prompt)
-                break
-            except Exception:
-                continue
+        # === Step 3: アフィリエイトリンクの動的付与 ===
+        try:
+            config_path = os.path.join(os.path.dirname(__file__), "affiliate_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    affiliate_config = json.load(f)
+                
+                if category in affiliate_config:
+                    eval_text = result_json.get("evaluation", "")
+                    # 悪質判定かどうかのフラグ（Smart Switch用）
+                    is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
                     
-        if not response:
-            return {"status": "error", "message": "解析中にAIモデルの利用制限に達しました。"}
-        
-        # 応答テキストをJSONとしてパース
-        result_json = json.loads(response.text)
+                    result_json["affiliate_recommendation"] = {
+                        "is_active": True,
+                        "is_high_priority": is_high_priority,
+                        "title": affiliate_config[category]["title"],
+                        "name": affiliate_config[category]["name"],
+                        "url": affiliate_config[category]["url"],
+                        "description": affiliate_config[category]["description"]
+                    }
+        except Exception as e:
+            # アフィリエイト読み込みエラーはメイン処理に影響させない
+            print(f"Affiliate config error: {e}")
+            pass
+
         return result_json
         
     except Exception as e:

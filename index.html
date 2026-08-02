@@ -307,7 +307,10 @@
                         <option value="引越し">引越し（引越し業者・比較など）</option>
                         <option value="不用品買取">不用品買取（着物・骨董品・廃品回収など）</option>
                         <option value="住宅関連">住宅関連（リフォーム・外壁塗装・修繕など）</option>
+                        <option value="プロパンガス">プロパンガス（ガス料金の見直しなど）</option>
+                        <option value="電気料金">電気料金（電力会社の乗り換えなど）</option>
                         <option value="大型家電（冷蔵庫・洗濯機等）">大型家電（冷蔵庫・洗濯機など）</option>
+                        <option value="スマホ修理・購入">スマホ修理・購入（高額な修理代や新品購入の見直し）</option>
                         <option value="保険">保険（火災・生命・自動車保険など）</option>
                         <option value="その他">その他</option>
                     </select>
@@ -1047,89 +1050,71 @@
                 evalCard.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-700');
             }
 
-            // マネタイズUI（アフィリエイト枠）の表示制御
+            // マネタイズUI（アフィリエイト枠）の動的表示制御
             const affiliateSec = document.getElementById('affiliateSection');
             const affTitle = document.getElementById('affiliateTitle');
             const affDesc = document.getElementById('affiliateDesc');
             const affBadgeText = document.getElementById('affiliateBadgeText');
-            
-            if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり') || evalValue.includes('割高')) {
-                affTitle.textContent = "この見積もりで契約するのは危険です！";
-                affDesc.textContent = "悪徳業者を排除した安心な優良業者で相見積もりを取りましょう。";
-                if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
-                affiliateSec.classList.remove('hidden');
-                affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-            } else if (evalValue.includes('相場通り')) {
-                affTitle.textContent = "他の業者も比較してみませんか？";
-                affDesc.textContent = "相場通りですが、相見積もりでさらに安くなる可能性があります。";
-                if(affBadgeText) affBadgeText.textContent = "✨ さらに安く！";
-                affiliateSec.classList.remove('hidden');
-                affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-            } else {
-                affTitle.textContent = "素晴らしい見積もりです！";
-                affDesc.textContent = "もし念のため他社も比較したい場合はこちら（無料）";
-                if(affBadgeText) affBadgeText.textContent = "✨ 念のため比較";
-                affiliateSec.classList.remove('hidden');
-                affiliateSec.className = "fade-in bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-            }
-
-            // カテゴリに応じたアフィリエイトリンクの動的設定
-            // 履歴から呼び出した場合やサーバーからの返り値がある場合はそちらを優先
-            const selectedCategory = data.category || document.getElementById('categorySelect').value;
             const affiliateLinkBtn = document.getElementById('affiliateLink');
             
-            // ユーザーから個別のURLが提供されるまでの暫定URL（楽天アフィリエイト）
-            let DEFAULT_URL = "https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3Dhttp%253A%252F%252Fwww.rakuten.co.jp%252F%26m%3Dhttp%253A%252F%252Fm.rakuten.co.jp%252F";
-            let defaultText = '✅ 楽天市場で関連商品を探す';
+            if (data.affiliate_recommendation && data.affiliate_recommendation.is_active) {
+                const rec = data.affiliate_recommendation;
+                
+                affTitle.textContent = rec.title;
+                affDesc.textContent = rec.description;
+                affiliateLinkBtn.href = rec.url;
+                affiliateLinkBtn.innerHTML = `
+                    <span>✅ ${rec.name}で詳しく見る</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                `;
 
-            // 動的キーワード検索への対応（楽天市場）
-            let searchKeyword = "";
-            if (data.search_keyword && data.search_keyword.trim() !== "") {
-                searchKeyword = data.search_keyword.trim();
-            } else if (selectedCategory === 'エアコン' || selectedCategory === '大型家電（冷蔵庫・洗濯機等）') {
-                searchKeyword = selectedCategory === '大型家電（冷蔵庫・洗濯機等）' ? '大型家電' : selectedCategory;
+                if (rec.is_high_priority) {
+                    if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                } else {
+                    if(affBadgeText) affBadgeText.textContent = "✨ 安心の優良業者";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                }
+            } else {
+                // アフィリエイト設定がない場合はデフォルトのフォールバック処理（旧ロジックを保持）
+                if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり') || evalValue.includes('割高')) {
+                    affTitle.textContent = "この見積もりで契約するのは危険です！";
+                    affDesc.textContent = "悪徳業者を排除した安心な優良業者で相見積もりを取りましょう。";
+                    if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                } else if (evalValue.includes('相場通り')) {
+                    affTitle.textContent = "他の業者も比較してみませんか？";
+                    affDesc.textContent = "相場通りですが、相見積もりでさらに安くなる可能性があります。";
+                    if(affBadgeText) affBadgeText.textContent = "✨ さらに安く！";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                } else {
+                    affTitle.textContent = "素晴らしい見積もりです！";
+                    affDesc.textContent = "もし念のため他社も比較したい場合はこちら（無料）";
+                    if(affBadgeText) affBadgeText.textContent = "✨ 念のため比較";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                }
+
+                // デフォルトURL生成処理...
+                let DEFAULT_URL = "https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ...";
+                let defaultText = '✅ 楽天市場で関連商品を探す';
+                if (data.search_keyword && data.search_keyword.trim() !== "") {
+                    const keyword = encodeURIComponent(data.search_keyword.trim());
+                    const searchUrl = `https://search.rakuten.co.jp/search/mall/${keyword}/`;
+                    const encodedSearchUrl = encodeURIComponent(searchUrl);
+                    DEFAULT_URL = `https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3D${encodedSearchUrl}%26m%3D${encodedSearchUrl}`;
+                    defaultText = `✅ 楽天市場で『${data.search_keyword.trim()}』を探す`;
+                }
+                affiliateLinkBtn.href = DEFAULT_URL;
+                affiliateLinkBtn.innerHTML = `
+                    <span>${defaultText}</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                `;
             }
-
-            if (searchKeyword !== "") {
-                const keyword = encodeURIComponent(searchKeyword);
-                // 楽天市場の検索結果URL
-                const searchUrl = `https://search.rakuten.co.jp/search/mall/${keyword}/`;
-                const encodedSearchUrl = encodeURIComponent(searchUrl);
-                // A8.netの転送先（pc= と m=）を検索結果URLに書き換え
-                DEFAULT_URL = `https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3D${encodedSearchUrl}%26m%3D${encodedSearchUrl}`;
-                defaultText = `✅ 楽天市場で『${searchKeyword}』の最安値を探す`;
-            }
-            
-            const rakutenCarUrl = encodeURIComponent("https://car.rakuten.co.jp/shaken/");
-            const CAR_URL = `https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3D${rakutenCarUrl}%26m%3D${rakutenCarUrl}`;
-
-            // エアコンジャンル専用の動的リンク分岐（本体購入 vs 清掃・修理）
-            let acUrl = "https://px.a8.net/svt/ejp?a8mat=4B89KX+5TKLPU+4HQS+5ZMCI";
-            let acText = '✅ ユアマイスターでプロの料金を比較（無料）';
-            if (selectedCategory === 'エアコン' && data.search_keyword && data.search_keyword.trim() !== "") {
-                acUrl = DEFAULT_URL;
-                acText = defaultText;
-            }
-
-            const affiliateLinks = {
-                'エアコン': { url: acUrl, text: acText },
-                'ハウスクリーニング': { url: "https://px.a8.net/svt/ejp?a8mat=4B89KX+5N0U2A+3UHU+69P02", text: '✅ おそうじ革命でプロの料金を比較（無料）' },
-                '車検・整備': { url: CAR_URL, text: '✅ 楽天Car車検で無料見積もり' },
-                '引越し': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' },
-                '引越し・不用品回収': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+F7QTBM+ZXM+HZAGZ", text: '✅ 引越し侍で無料一括見積もり' }, 
-                '不用品買取': { url: "https://px.a8.net/svt/ejp?a8mat=4B7X59+2OG8S2+35HU+60H7N", text: '✅ 福ちゃんで不用品の無料査定を申し込む' },
-                '住宅関連': { url: "https://px.a8.net/svt/ejp?a8mat=4B7X59+49LUUQ+410U+5YZ77", text: '✅ ヌリカエで外壁塗装の相場をチェック（無料）' },
-                '大型家電（冷蔵庫・洗濯機等）': { url: DEFAULT_URL, text: searchKeyword ? defaultText : '✅ 楽天市場で最安値を探す' },
-                '保険': { url: "https://px.a8.net/svt/ejp?a8mat=4B7YP6+FFHG6Q+3RU+6S4D6B", text: '✅ 火災保険の無料診断（適正相場をチェック）' },
-                'その他': { url: DEFAULT_URL, text: defaultText }
-            };
-
-            const linkData = affiliateLinks[selectedCategory] || affiliateLinks['その他'];
-            affiliateLinkBtn.href = linkData.url;
-            affiliateLinkBtn.innerHTML = `
-                <span>${linkData.text}</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-            `;
 
             const infraText = document.getElementById('infrastructureCheck');
             const infraValue = data.infrastructure_check || "チェック結果なし";
