@@ -304,6 +304,7 @@
                         
                         <optgroup label="🏠 住まい・インフラ">
                             <option value="住宅関連">リフォーム・外壁塗装・修繕など</option>
+                            <option value="火災保険">火災保険（新規加入・乗り換え・見積もりなど）</option>
                             <option value="引越し">引越し（業者比較・お見積りなど）</option>
                             <option value="プロパンガス">プロパンガス（ガス料金の見直しなど）</option>
                             <option value="電気料金">電気料金（電力会社の乗り換えなど）</option>
@@ -791,10 +792,12 @@
                 uploadHint.textContent = 'ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。';
             } else if (val === '車検・整備') {
                 uploadHint.textContent = '車検や整備の見積書、車検証などの写真を複数選択してください。';
-            } else if (val === '引越し・不用品回収') {
+            } else if (val === '引越し・不用品回収' || val === '引越し' || val === '不用品買取') {
                 uploadHint.textContent = '引越しや不用品回収の見積書などの写真を複数選択してください。';
             } else if (val === '住宅関連') {
                 uploadHint.textContent = 'リフォームや外壁塗装、修繕の見積書などの写真を複数選択してください。';
+            } else if (val === '火災保険') {
+                uploadHint.textContent = '現在ご加入中の火災保険証券や、他社の見積書などの写真を選択してください。';
             } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
                 uploadHint.textContent = '見積書や、搬入経路（階段・ドアなど）の写真を複数選択してください。';
             } else {
