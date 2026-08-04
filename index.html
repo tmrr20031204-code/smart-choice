@@ -353,15 +353,20 @@
                                 <p id="uploadHint" class="text-xs text-blue-600 mb-2">ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。</p>
                                 
                                 <div class="space-y-3">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <button type="button" id="cameraBtn" class="flex flex-col items-center justify-center p-4 bg-blue-50 border-2 border-blue-200 text-blue-700 rounded-xl hover:bg-blue-100 hover:border-blue-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
-                                            <svg class="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                            <span class="text-sm font-bold">カメラで撮影</span>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button type="button" id="cameraBtn" class="flex flex-col items-center justify-center p-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            <span class="text-[10px] sm:text-xs font-bold text-center">写真を撮る</span>
                                         </button>
                                         
-                                        <button type="button" id="albumBtn" class="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
-                                            <svg class="w-8 h-8 mb-2 group-hover:scale-110 transition-transform text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                            <span class="text-sm font-bold">アルバムから選ぶ</span>
+                                        <button type="button" id="albumBtn" class="flex flex-col items-center justify-center p-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <span class="text-[10px] sm:text-xs font-bold text-center">写真ライブラリ</span>
+                                        </button>
+
+                                        <button type="button" id="fileBtn" class="flex flex-col items-center justify-center p-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                            <svg class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            <span class="text-[10px] sm:text-xs font-bold text-center">ファイルを選択</span>
                                         </button>
                                     </div>
                                     
@@ -373,6 +378,8 @@
                                     <!-- 隠しインプット -->
                                     <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
                                     <input type="file" id="albumInput" accept="image/*" multiple class="hidden">
+                                    <input type="file" id="fileInputSelect" multiple class="hidden">
+
                                     
                                     <p class="text-xs text-gray-500 text-center font-bold pt-1" id="fileCount">選択されていません</p>
                                 </div>
@@ -765,11 +772,14 @@
 
         const cameraInput = document.getElementById('cameraInput');
         const albumInput = document.getElementById('albumInput');
+        const fileInputSelect = document.getElementById('fileInputSelect');
         const cameraBtn = document.getElementById('cameraBtn');
         const albumBtn = document.getElementById('albumBtn');
+        const fileBtn = document.getElementById('fileBtn');
         
         cameraBtn.addEventListener('click', () => cameraInput.click());
         albumBtn.addEventListener('click', () => albumInput.click());
+        fileBtn.addEventListener('click', () => fileInputSelect.click());
         const fileCountText = document.getElementById('fileCount');
         const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         const categorySelect = document.getElementById('categorySelect');
@@ -841,6 +851,7 @@
                 if (clearBtn) clearBtn.classList.add('hidden');
                 if (cameraInput) cameraInput.value = '';
                 if (albumInput) albumInput.value = '';
+                if (fileInputSelect) fileInputSelect.value = '';
             }
         }
 
@@ -855,6 +866,7 @@
 
         cameraInput.addEventListener('change', handleFileSelect);
         albumInput.addEventListener('change', handleFileSelect);
+        fileInputSelect.addEventListener('change', handleFileSelect);
 
         // 写真クリア（全削除）ボタンの処理
         document.getElementById('clearPhotosBtn').addEventListener('click', () => {
