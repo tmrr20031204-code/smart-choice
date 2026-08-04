@@ -352,16 +352,29 @@
                             <div>
                                 <p id="uploadHint" class="text-xs text-blue-600 mb-2">ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。</p>
                                 
-                                <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition">
-                                    <input type="file" id="images" name="files" multiple accept="image/*" 
-                                           class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                                    <div class="space-y-2">
-                                        <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                        </svg>
-                                        <p class="text-sm text-gray-600 font-medium">タップして写真を選択</p>
-                                        <p class="text-xs text-gray-500" id="fileCount">選択されていません</p>
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button type="button" id="cameraBtn" class="flex flex-col items-center justify-center p-4 bg-blue-50 border-2 border-blue-200 text-blue-700 rounded-xl hover:bg-blue-100 hover:border-blue-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                            <svg class="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            <span class="text-sm font-bold">カメラで撮影</span>
+                                        </button>
+                                        
+                                        <button type="button" id="albumBtn" class="flex flex-col items-center justify-center p-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                            <svg class="w-8 h-8 mb-2 group-hover:scale-110 transition-transform text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <span class="text-sm font-bold">アルバムから選ぶ</span>
+                                        </button>
                                     </div>
+                                    
+                                    <p class="text-[11px] text-gray-500 text-center flex items-center justify-center mt-1">
+                                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                        ※アップロードされた画像は解析後に自動破棄され、保存されません。
+                                    </p>
+
+                                    <!-- 隠しインプット -->
+                                    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+                                    <input type="file" id="albumInput" accept="image/*" multiple class="hidden">
+                                    
+                                    <p class="text-xs text-gray-500 text-center font-bold pt-1" id="fileCount">選択されていません</p>
                                 </div>
                                 
                                 <!-- 選択した画像のプレビュー表示エリア -->
@@ -750,7 +763,13 @@
             }
         };
 
-        const fileInput = document.getElementById('images');
+        const cameraInput = document.getElementById('cameraInput');
+        const albumInput = document.getElementById('albumInput');
+        const cameraBtn = document.getElementById('cameraBtn');
+        const albumBtn = document.getElementById('albumBtn');
+        
+        cameraBtn.addEventListener('click', () => cameraInput.click());
+        albumBtn.addEventListener('click', () => albumInput.click());
         const fileCountText = document.getElementById('fileCount');
         const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         const categorySelect = document.getElementById('categorySelect');
@@ -820,17 +839,22 @@
                 fileCountText.className = "text-xs text-gray-500";
                 imagePreviewContainer.classList.add('hidden');
                 if (clearBtn) clearBtn.classList.add('hidden');
-                fileInput.value = ''; // 元のinputもクリア
+                if (cameraInput) cameraInput.value = '';
+                if (albumInput) albumInput.value = '';
             }
         }
 
-        fileInput.addEventListener('change', (e) => {
+        const handleFileSelect = (e) => {
             const files = Array.from(e.target.files);
             if (files.length > 0) {
                 globalSelectedFiles = globalSelectedFiles.concat(files);
                 updateImagePreviews();
             }
-        });
+            e.target.value = ''; // allow selecting same file again
+        };
+
+        cameraInput.addEventListener('change', handleFileSelect);
+        albumInput.addEventListener('change', handleFileSelect);
 
         // 写真クリア（全削除）ボタンの処理
         document.getElementById('clearPhotosBtn').addEventListener('click', () => {
