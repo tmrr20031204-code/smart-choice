@@ -1216,6 +1216,20 @@
             const priceList = document.getElementById('priceList');
             priceList.innerHTML = '';
             if (data.price_analysis && data.price_analysis.itemized_list) {
+                // 見積もりの合計金額の計算
+                const totalPrice = data.price_analysis.itemized_list.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+                
+                // 合計金額の表示ブロック
+                if (totalPrice > 0) {
+                    const totalDiv = document.createElement('div');
+                    totalDiv.className = "flex justify-between items-center p-4 mb-3 border-b-2 border-gray-300 bg-white rounded-lg shadow-sm";
+                    totalDiv.innerHTML = `
+                        <span class="font-bold text-gray-700 text-sm">見積もりの合計金額</span>
+                        <span class="text-xl font-black text-gray-900">¥${totalPrice.toLocaleString()}</span>
+                    `;
+                    priceList.appendChild(totalDiv);
+                }
+
                 data.price_analysis.itemized_list.forEach(item => {
                     let statusColor = 'text-gray-700 bg-gray-100 border-gray-200';
                     let icon = 'ℹ️';
