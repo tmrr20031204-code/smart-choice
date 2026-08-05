@@ -439,6 +439,19 @@
                 </div>
             </section>
 
+            <!-- 履歴表示用ヘッダー -->
+            <section id="historyHeaderSection" class="hidden mb-6 fade-in">
+                <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 text-center shadow-sm">
+                    <div class="flex items-center justify-center gap-2 mb-2">
+                        <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <h2 class="text-sm font-bold text-yellow-800">過去の解析履歴を表示中</h2>
+                    </div>
+                    <button type="button" onclick="resetApp()" class="w-full py-2 bg-white text-yellow-700 text-sm font-bold rounded-xl border border-yellow-300 hover:bg-yellow-100 transition shadow-sm">
+                        新しく解析を始める
+                    </button>
+                </div>
+            </section>
+
             <!-- 結果表示セクション -->
             <section id="resultSection" class="hidden space-y-6 fade-in pb-8">
                 <!-- 総合判定 -->
@@ -766,7 +779,10 @@
             const item = history.find(h => h.id === id);
             if (item) {
                 historyModal.classList.add('hidden');
+                document.getElementById('demoSection').classList.add('hidden');
+                document.getElementById('historyHeaderSection').classList.remove('hidden');
                 renderResult(item.data);
+                window.scrollTo(0, 0);
             }
         };
 
@@ -1317,7 +1333,12 @@
             
             document.getElementById('resultSection').classList.add('hidden');
             document.getElementById('loadingSection').classList.add('hidden');
-            document.getElementById('uploadSection').classList.remove('hidden');
+            document.getElementById('demoSection').classList.remove('hidden');
+            const historyHeader = document.getElementById('historyHeaderSection');
+            if(historyHeader) historyHeader.classList.add('hidden');
+            
+            const uploadSection = document.getElementById('uploadSection');
+            if(uploadSection) uploadSection.classList.remove('hidden');
         }
 
         // 高画質な写真をAIの無料枠に合わせて自動圧縮する機能
