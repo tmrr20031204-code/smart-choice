@@ -178,7 +178,8 @@ async def analyze_images(
             try:
                 search_model = genai.GenerativeModel(
                     model_name=model_name,
-                    tools="google_search"
+                    tools="google_search",
+                    generation_config={"temperature": 0.1}
                 )
                 search_response = search_model.generate_content([search_prompt] + image_parts)
                 step1_response_text = search_response.text
@@ -195,7 +196,7 @@ async def analyze_images(
                     fallback_model = genai.GenerativeModel(
                         model_name=model_name,
                         system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"response_mime_type": "application/json"}
+                        generation_config={"response_mime_type": "application/json", "temperature": 0.1}
                     )
                     response = fallback_model.generate_content([prompt] + image_parts)
                     break
@@ -219,7 +220,7 @@ async def analyze_images(
                     json_model = genai.GenerativeModel(
                         model_name=model_name,
                         system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"response_mime_type": "application/json"}
+                        generation_config={"response_mime_type": "application/json", "temperature": 0.1}
                     )
                     response = json_model.generate_content(formatting_prompt)
                     break
