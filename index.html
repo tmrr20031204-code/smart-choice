@@ -1080,7 +1080,7 @@
             } catch (error) {
                 clearInterval(textInterval);
                 console.error(error);
-                alert('サーバーがスリープ状態から復帰中です（無料サーバー特有の動作です）。\\n約30秒〜1分ほど待ってから、もう一度「解析スタート」を押してください。');
+                alert('サーバーがスリープ状態から復帰中です。\\n約30秒〜1分ほど待ってから、もう一度「解析スタート」を押してください。');
                 resetApp();
             }
         });
@@ -1134,7 +1134,7 @@
                 let showCustomAffiliate = true;
 
                 // 保険ジャンルの動的ルーティング（不適切なASP遷移の防止）
-                if (selectedCategory === '保険') {
+                if (rec.name === 'インズウェブ') {
                     const insType = data.search_keyword || "";
                     if (insType.includes("生命") || insType.includes("自動車") || insType.includes("医療")) {
                         // 生命保険や自動車保険の場合は、火災保険のインズウェブを表示しない（今後の機能拡張枠）
