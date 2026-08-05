@@ -304,7 +304,6 @@
                         
                         <optgroup label="🏠 住まい・インフラ">
                             <option value="住宅関連">リフォーム・外壁塗装・修繕など</option>
-                            <option value="火災保険">火災保険（新規加入・乗り換え・見積もりなど）</option>
                             <option value="引越し">引越し（業者比較・お見積りなど）</option>
                             <option value="プロパンガス">プロパンガス（ガス料金の見直しなど）</option>
                             <option value="電気料金">電気料金（電力会社の乗り換えなど）</option>
@@ -796,8 +795,8 @@
                 uploadHint.textContent = '引越しや不用品回収の見積書などの写真を複数選択してください。';
             } else if (val === '住宅関連') {
                 uploadHint.textContent = 'リフォームや外壁塗装、修繕の見積書などの写真を複数選択してください。';
-            } else if (val === '火災保険') {
-                uploadHint.textContent = '現在ご加入中の火災保険証券や、他社の見積書などの写真を選択してください。';
+            } else if (val === '保険') {
+                uploadHint.textContent = '現在ご加入中の保険証券や、他社の見積書などの写真を選択してください。';
             } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
                 uploadHint.textContent = '見積書や、搬入経路（階段・ドアなど）の写真を複数選択してください。';
             } else {
@@ -1109,9 +1108,20 @@
             const affiliateLinkBtn = document.getElementById('affiliateLink');
             
             if (data.affiliate_recommendation && data.affiliate_recommendation.is_active) {
-                const rec = data.affiliate_recommendation;
+                let rec = data.affiliate_recommendation;
+                let showCustomAffiliate = true;
+
+                // 保険ジャンルの動的ルーティング（不適切なASP遷移の防止）
+                if (selectedCategory === '保険') {
+                    const insType = data.search_keyword || "";
+                    if (insType.includes("生命") || insType.includes("自動車") || insType.includes("医療")) {
+                        // 生命保険や自動車保険の場合は、火災保険のインズウェブを表示しない（今後の機能拡張枠）
+                        showCustomAffiliate = false;
+                    }
+                }
                 
-                affTitle.textContent = rec.title;
+                if (showCustomAffiliate) {
+                    affTitle.textContent = rec.title;
                 affDesc.textContent = rec.description;
                 affiliateLinkBtn.href = rec.url;
                 affiliateLinkBtn.innerHTML = `
@@ -1128,8 +1138,13 @@
                     affiliateSec.classList.remove('hidden');
                     affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 }
+                }
             } else {
-                // アフィリエイト設定がない場合はデフォルトのフォールバック処理（旧ロジックを保持）
+                let showCustomAffiliate = false;
+            }
+
+            if (typeof showCustomAffiliate === 'undefined' || !showCustomAffiliate) {
+                // アフィリエイト設定がない場合、または動的ルーティングで除外された場合はデフォルトのフォールバック処理
                 if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり') || evalValue.includes('割高')) {
                     affTitle.textContent = "この見積もりで契約するのは危険です！";
                     affDesc.textContent = "悪徳業者を排除した安心な優良業者で相見積もりを取りましょう。";
