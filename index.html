@@ -1061,6 +1061,11 @@
                     method: 'POST',
                     body: formData
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
                 clearInterval(textInterval);
@@ -1075,7 +1080,7 @@
             } catch (error) {
                 clearInterval(textInterval);
                 console.error(error);
-                alert('通信エラーが発生しました。バックエンドが起動しているか確認してください。');
+                alert('サーバーがスリープ状態から復帰中です（無料サーバー特有の動作です）。\\n約30秒〜1分ほど待ってから、もう一度「解析スタート」を押してください。');
                 resetApp();
             }
         });
