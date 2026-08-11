@@ -480,10 +480,13 @@
                                 <p id="affiliateDesc" class="text-xs text-gray-700 font-medium">相見積もりを取ることで、さらに安くなる可能性があります。</p>
                             </div>
                         </div>
-                        <a href="https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3Dhttp%253A%252F%252Fwww.rakuten.co.jp%252F%26m%3Dhttp%253A%252F%252Fm.rakuten.co.jp%252F" id="affiliateLink" target="_blank" rel="noopener noreferrer" class="block w-full bg-orange-500 hover:bg-orange-600 active:scale-95 transition transform text-white text-center font-bold py-3 rounded-lg shadow-md flex justify-center items-center space-x-2 mt-3 border border-orange-600">
-                            <span>✅ 楽天市場で関連商品を探す</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                        </a>
+                        <div id="customAffiliateBtnContainer" class="mt-3">
+                            <a href="https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6EMGZ&rakuten=y&a8ejpredirect=http%3A%2F%2Fhb.afl.rakuten.co.jp%2Fhgc%2F0ea62065.34400275.0ea62066.204f04c0%2Fa26071033890_4B7X58_DSJJAQ_2HOM_6EMGZ%3Fpc%3Dhttp%253A%252F%252Fwww.rakuten.co.jp%252F%26m%3Dhttp%253A%252F%252Fm.rakuten.co.jp%252F" id="affiliateLink" target="_blank" rel="noopener noreferrer" class="block w-full bg-orange-500 hover:bg-orange-600 active:scale-95 transition transform text-white text-center font-bold py-3 rounded-lg shadow-md flex justify-center items-center space-x-2 border border-orange-600">
+                                <span>✅ 楽天市場で関連商品を探す</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                        </div>
+                        <div id="fallbackAffiliateBtnContainer" class="mt-3 hidden w-full"></div>
                         <p class="text-[9px] text-gray-500 text-center mt-2">※厳しい審査を通過した安心な業者のみをご紹介します</p>
                         <p class="text-[9px] text-gray-400 text-center mt-1">※本サイトはプロモーションを含みます</p>
                     </div>
@@ -1153,6 +1156,11 @@
                         finalUrl = finalUrl + "&vc_url=" + encodeURIComponent(ySearchUrl);
                     }
                     
+                    const customBtnContainer = document.getElementById('customAffiliateBtnContainer');
+                    const fallbackBtnContainer = document.getElementById('fallbackAffiliateBtnContainer');
+                    customBtnContainer.classList.remove('hidden');
+                    fallbackBtnContainer.classList.add('hidden');
+                    
                     affiliateLinkBtn.href = finalUrl;
                     affiliateLinkBtn.innerHTML = `
                         <span>✅ ${rec.name}で詳しく見る</span>
@@ -1215,9 +1223,13 @@
                     y_text = `Yahoo!で<br><span class="text-[10px] sm:text-xs font-normal opacity-90">『${data.search_keyword.trim()}』を探す</span>`;
                 }
                 
-                // ボタンコンテナを取得して2つの並列ボタンを注入
-                const btnContainer = affiliateLinkBtn.parentElement;
-                btnContainer.innerHTML = `
+                const customBtnContainer = document.getElementById('customAffiliateBtnContainer');
+                const fallbackBtnContainer = document.getElementById('fallbackAffiliateBtnContainer');
+                customBtnContainer.classList.add('hidden');
+                fallbackBtnContainer.classList.remove('hidden');
+                
+                // フォールバック用のコンテナに2つの並列ボタンを注入
+                fallbackBtnContainer.innerHTML = `
                     <div class="grid grid-cols-2 gap-3 w-full">
                         <a href="${r_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-3 px-1 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all shadow-md text-center border-b-4 border-red-800 active:border-b-0 active:translate-y-1">
                             <span class="font-bold text-sm sm:text-base leading-tight">
