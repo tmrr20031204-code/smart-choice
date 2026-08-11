@@ -60,6 +60,9 @@ SYSTEM_INSTRUCTION = """
 ・相場との差が±5%未満の場合：「相場通り」
 ・相場より5%〜大きく超えない程度に高い場合：「やや割高」
 ・相場を大きく超えるぼったくりの場合：「危険！（ぼったくりの可能性あり）」
+【アフィリエイト・ECサイト誘導の最適化（最重要）】
+原則として、プロの技術や専用サービスを利用することでユーザーのQOL（生活の質）が向上するため、既存の専用業者（ASP）への誘導を最優先とします。単に「自分でやった方が安い」という理由だけでECサイト（楽天市場など）を推奨しないでください。
+ただし、「専用業者の対象範囲外である（例: スマホ専用業者なのにパソコンの見積もりである等）」と明確に判断できる場合のみ、JSONの "recommend_ec_search" を true に設定してください。
 {
   "status": "success",
   "evaluation": "上記の評価基準のいずれかの文字列",
@@ -71,6 +74,7 @@ SYSTEM_INSTRUCTION = """
   },
   "negotiation_script_line": "LINE用コピペテキスト",
   "negotiation_script_shop": ["店頭用カンペ1", "店頭用カンペ2"],
+  "recommend_ec_search": false,
   "search_keyword": "楽天市場等で『商品本体を新たに購入する』ための最適な商品キーワード。※注意: 修理、清掃、工事などの『サービスの依頼』に関する見積もりの場合は、商品名が書かれていても絶対に空文字にすること。"
 }
 """
@@ -150,8 +154,8 @@ async def analyze_images(
             category_instruction = "【分析対象: プロパンガス（LPガス）】基本料金や従量単価（1m3あたり）が地域の適正相場と比較して高すぎないか確認してください。不透明な値上げや不当な請求がないか厳しくチェックしてください。"
         elif category == "電気料金":
             category_instruction = "【分析対象: 電気料金】基本料金や電力量料金（kWh単価）、燃料費調整額などが高すぎないか、または市場連動型プランで高騰していないか確認してください。地域の適正な新電力（固定単価等）と比較して、乗り換えた方がユーザーにとってお得かアドバイスしてください。"
-        elif category == "スマホ購入・修理":
-            category_instruction = "【分析対象: スマホ購入・修理】最新機種の新品購入や正規店の高額な修理代（画面割れ、バッテリー交換など）の金額が適正か、または「高品質な中古スマホを購入する」という別の選択肢（相場）と比較して、ユーザーにとってどちらが賢い選択かアドバイスしてください。"
+        elif category == "パソコン・スマホ購入・修理":
+            category_instruction = "【分析対象: パソコン・スマホ購入・修理】最新機種の新品購入や正規店の高額な修理代の金額が適正か、または高品質な中古品を購入するという別の選択肢と比較してアドバイスしてください。\n※【重要: システム連携情報】現在連携している専用業者は「スマホ・iPhone専用の中古販売業者」です。もしユーザーの画像やテキストが「パソコン（PC）」に関する見積もりである場合は、専用業者の対象外となるため、必ずJSONの 'recommend_ec_search' を true にし、'search_keyword' にパソコンの検索キーワード（例: '中古 ノートパソコン'）を出力してください。"
         else:
             category_instruction = f"【分析対象: {category}】カテゴリに応じた一般的な適正価格と品質維持の観点から分析してください。"
 
@@ -240,18 +244,22 @@ async def analyze_images(
                     affiliate_config = json.load(f)
                 
                 if category in affiliate_config:
-                    eval_text = result_json.get("evaluation", "")
-                    # 悪質判定かどうかのフラグ（Smart Switch用）
-                    is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
+                    # AIがECサイトへのフォールバックを強く推奨しているか確認
+                    recommend_ec = result_json.get("recommend_ec_search", False)
                     
-                    result_json["affiliate_recommendation"] = {
-                        "is_active": True,
-                        "is_high_priority": is_high_priority,
-                        "title": affiliate_config[category]["title"],
-                        "name": affiliate_config[category]["name"],
-                        "url": affiliate_config[category]["url"],
-                        "description": affiliate_config[category]["description"]
-                    }
+                    if not recommend_ec:
+                        eval_text = result_json.get("evaluation", "")
+                        # 悪質判定かどうかのフラグ
+                        is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
+                        
+                        result_json["affiliate_recommendation"] = {
+                            "is_active": True,
+                            "is_high_priority": is_high_priority,
+                            "title": affiliate_config[category]["title"],
+                            "name": affiliate_config[category]["name"],
+                            "url": affiliate_config[category]["url"],
+                            "description": affiliate_config[category]["description"]
+                        }
         except Exception as e:
             # アフィリエイト読み込みエラーはメイン処理に影響させない
             print(f"Affiliate config error: {e}")
