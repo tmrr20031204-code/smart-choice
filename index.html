@@ -1315,6 +1315,16 @@
             if (!window.currentResultData) return;
             const data = window.currentResultData;
             
+            // Generate Share URL with Base64 Encoded JSON
+            let shareUrl = window.location.href.split('#')[0];
+            try {
+                const jsonStr = JSON.stringify(data);
+                const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+                shareUrl = shareUrl + "#result=" + base64Data;
+            } catch(e) {
+                console.error("Encode error", e);
+            }
+            
             let shareText = "【Smart Choice 解析結果】\n";
             shareText += "判定: " + (data.evaluation || "不明") + "\n";
             
@@ -1325,7 +1335,7 @@
                 shareText += "\n";
             }
             
-            shareText += "▼ アプリで詳細を見る\n" + window.location.href;
+            shareText += "▼ 解析結果の詳細を見る\n" + shareUrl;
             
             if (navigator.share) {
                 navigator.share({
@@ -1451,6 +1461,33 @@
                 }
             });
         }
+
+        // URLからの共有結果復元ロジック
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.location.hash.startsWith('#result=')) {
+                try {
+                    const base64Data = window.location.hash.substring(8);
+                    const jsonStr = decodeURIComponent(escape(atob(base64Data)));
+                    const data = JSON.parse(jsonStr);
+                    
+                    // 結果画面を描画
+                    renderResult(data);
+                    
+                    // 共有されたものであることをユーザーに通知し、結果部分へスクロール
+                    setTimeout(() => {
+                        const resultSec = document.getElementById('resultSection');
+                        if(resultSec) {
+                            resultSec.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        alert("共有された解析結果を表示しています。\nご自身で見積もりを解析する場合は、画面上部から写真をアップロードしてください。");
+                    }, 800);
+                    
+                } catch (e) {
+                    console.error("Shared result parsing error", e);
+                    alert("共有リンクの読み込みに失敗しました。データが破損している可能性があります。");
+                }
+            }
+        });
 
         // Service Workerの登録（完全なPWA要件を満たすため）
         if ('serviceWorker' in navigator) {
