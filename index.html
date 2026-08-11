@@ -1211,25 +1211,25 @@
                     const ySearchUrl = `https://shopping.yahoo.co.jp/search?p=${keyword}`;
                     y_url = y_url + "&vc_url=" + encodeURIComponent(ySearchUrl);
                     
-                    r_text = `✅ 楽天市場で『${data.search_keyword.trim()}』を探す`;
-                    y_text = `✅ Yahoo!ショッピングで『${data.search_keyword.trim()}』を探す`;
+                    r_text = `楽天で<br><span class="text-[10px] sm:text-xs font-normal opacity-90">『${data.search_keyword.trim()}』を探す</span>`;
+                    y_text = `Yahoo!で<br><span class="text-[10px] sm:text-xs font-normal opacity-90">『${data.search_keyword.trim()}』を探す</span>`;
                 }
                 
-                // ボタンコンテナを取得して2つのボタンを注入
+                // ボタンコンテナを取得して2つの並列ボタンを注入
                 const btnContainer = affiliateLinkBtn.parentElement;
                 btnContainer.innerHTML = `
-                    <a href="${r_url}" target="_blank" rel="noopener noreferrer" class="group flex items-center justify-between w-full p-4 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all shadow-md">
-                        <span class="font-bold flex items-center text-sm md:text-base">
-                            ${r_text}
-                        </span>
-                        <svg class="w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                    </a>
-                    <a href="${y_url}" target="_blank" rel="noopener noreferrer" class="group flex items-center justify-between w-full p-4 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-md">
-                        <span class="font-bold flex items-center text-sm md:text-base">
-                            ${y_text}
-                        </span>
-                        <svg class="w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                    </a>
+                    <div class="grid grid-cols-2 gap-3 w-full">
+                        <a href="${r_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-3 px-1 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all shadow-md text-center border-b-4 border-red-800 active:border-b-0 active:translate-y-1">
+                            <span class="font-bold text-sm sm:text-base leading-tight">
+                                ${r_text}
+                            </span>
+                        </a>
+                        <a href="${y_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-3 px-1 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all shadow-md text-center border-b-4 border-orange-700 active:border-b-0 active:translate-y-1">
+                            <span class="font-bold text-sm sm:text-base leading-tight">
+                                ${y_text}
+                            </span>
+                        </a>
+                    </div>
                 `;
             }
 
