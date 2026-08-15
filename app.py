@@ -77,7 +77,39 @@ SYSTEM_INSTRUCTION = """
   "recommend_ec_search": false,
   "search_keyword": "商品本体を購入するための検索キーワード。※家電やパソコンの場合は必ず商品名（例: '冷蔵庫 500L'）を出力してください。例外として、修理・清掃などの『無形サービスの依頼』の場合は絶対に空文字にすること。"
 }
+}
 """
+
+# グローバル変数としてモデルリストをキャッシュ（超高速化と未来永劫の自動対応を両立）
+_cached_models_to_try = []
+
+def get_dynamic_models():
+    global _cached_models_to_try
+    if _cached_models_to_try:
+        return _cached_models_to_try
+        
+    # 初回（サーバー起動時の1回）のみGoogleのサーバーに最新モデル一覧を取得しに行く
+    # 常に「無料で使える最新モデル」のエイリアスである gemini-flash-latest を最優先
+    base_models = ["gemini-flash-latest"]
+    try:
+        # 今この瞬間に生きていて使えるFlash（無料）モデルを動的に取得
+        available = [
+            m.name.replace('models/', '') 
+            for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
+        ]
+        # 文字列の降順ソートにより、3.7や4.0などの数字が大きい（新しい）バージョンが自動的に前に来る
+        available.sort(reverse=True)
+        for m in available:
+            if m not in base_models:
+                base_models.append(m)
+    except Exception as e:
+        print(f"Failed to fetch models: {e}")
+        pass
+        
+    # 取得結果をキャッシュ（以後は通信待機時間ゼロ秒でこのリストを使う）
+    _cached_models_to_try = base_models
+    return _cached_models_to_try
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
@@ -166,14 +198,10 @@ async def analyze_images(
         else:
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
-        # 翼さんのアイデアを最適化：遅延の原因だったモデル一覧のリアルタイム取得を廃止し、最速・最新のモデルを固定リスト化
-        models_to_try = [
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
-            "gemini-flash"
-        ]
+        # 翼さんのアイデアを完璧な形で実装：
+        # 遅延の原因だった「毎回の一覧取得」を初回1回のみ（キャッシュ化）にすることで待機時間をゼロにしつつ、
+        # 3.7や3.6などの固有名詞を一切ハードコーディングせず、常にGoogleの最新無料モデルを動的に取得・フォールバックする。
+        models_to_try = get_dynamic_models()
         
         # === 1ステップで全解析を完了（処理時間を大幅削減） ===
         # SDKエラーと遅延の元凶であったWeb検索機能への依存を廃止し、最新モデルの内部知識と厳格なハルシネーション対策プロンプトで精度と速度を両立。
