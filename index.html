@@ -1184,20 +1184,26 @@
             if (typeof showCustomAffiliate === 'undefined' || !showCustomAffiliate) {
                 // アフィリエイト設定がない場合、または動的ルーティングで除外された場合はデフォルトのフォールバック処理
                 if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり') || evalValue.includes('割高')) {
-                    affTitle.textContent = "この見積もりで契約するのは危険です！";
-                    affDesc.textContent = "悪徳業者を排除した安心な優良業者で相見積もりを取りましょう。";
+                    const dangerPatterns = [
+                        { title: "ちょっと待って！もっとお得な方法があるかもしれません。", desc: "数万円単位で損をしないために、別の業者やネット上の適正価格と一度比較してみることをおすすめします。" },
+                        { title: "損をしないための「賢い選択（SmartChoice）」を！", desc: "ひと呼吸おいて、他社の価格やネットの相場と比較することが、一番の節約に繋がります。まずはチェックしてみましょう。" },
+                        { title: "もっとお得になる「賢い選択（SmartChoice）」を！", desc: "今の金額で妥協せず、ネットの価格や他の相場と比較することで、数万円単位の節約に繋がる可能性もあります。" }
+                    ];
+                    const selected = dangerPatterns[Math.floor(Math.random() * dangerPatterns.length)];
+                    affTitle.textContent = selected.title;
+                    affDesc.textContent = selected.desc;
                     if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
                     affiliateSec.classList.remove('hidden');
                     affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 } else if (evalValue.includes('相場通り')) {
-                    affTitle.textContent = "他の業者も比較してみませんか？";
-                    affDesc.textContent = "相場通りですが、相見積もりでさらに安くなる可能性があります。";
+                    affTitle.textContent = "適正な相場ですが、まだ安くなる可能性があります！";
+                    affDesc.textContent = "他の選択肢（他社やネットの価格）と比較することで、さらにお得な「賢い選択」が見つかるかもしれません。";
                     if(affBadgeText) affBadgeText.textContent = "✨ さらに安く！";
                     affiliateSec.classList.remove('hidden');
                     affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 } else {
-                    affTitle.textContent = "素晴らしい見積もりです！";
-                    affDesc.textContent = "もし念のため他社も比較したい場合はこちら（無料）";
+                    affTitle.textContent = "素晴らしい見積もりですが、念のため比較しますか？";
+                    affDesc.textContent = "他の選択肢（他社やネットの価格）も一応確認しておくと、より安心して「賢い選択」ができます。";
                     if(affBadgeText) affBadgeText.textContent = "✨ 念のため比較";
                     affiliateSec.classList.remove('hidden');
                     affiliateSec.className = "fade-in bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl overflow-visible shadow-sm relative mb-6";
