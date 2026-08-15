@@ -166,16 +166,24 @@ async def analyze_images(
         else:
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
-        models_to_try = [
-            "gemini-flash-latest",
-            "gemini-3.7-flash",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-3.5-pro", 
-            "gemini-3.0-flash"
-        ]
+        # 翼さんのアイデアを採用した「完全自動・未来永劫腐らないフォールバック」
+        models_to_try = ["gemini-flash-latest"]
+        try:
+            # Googleサーバーから「今この瞬間に、生きていて使えるFlashモデル」の一覧をリアルタイム取得
+            available_flash_models = [
+                m.name.replace('models/', '') 
+                for m in genai.list_models() 
+                if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
+            ]
+            # 新しいバージョン（数字が大きいもの）を優先してフォールバックに組み込むため降順ソート
+            available_flash_models.sort(reverse=True)
+            
+            for m in available_flash_models:
+                if m not in models_to_try:
+                    models_to_try.append(m)
+        except Exception:
+            # 万が一モデル一覧の取得自体が失敗した時の最終的な命綱（絶対に消えない基本エイリアス）
+            models_to_try.extend(["gemini-1.5-flash", "gemini-flash"])
         
         # === Step 1: リアルタイムWeb検索による最新相場の取得 ===
         search_prompt = f"以下の見積もり内容および（添付があれば）画像を確認し、Google検索を用いて「今日の最新の適正相場」をリサーチしてください。その上で、見積もりが適正か、ぼったくりか、不要な項目があるかを詳細に分析したテキストレポートを作成してください。\n\n{prompt}"
