@@ -1048,7 +1048,7 @@
                             } else {
                                 reject(new Error('Canvas toBlob failed'));
                             }
-                        }, 'image/jpeg', 0.5);
+                        }, 'image/jpeg', 0.8);
                     };
                     img.onerror = error => reject(error);
                 };
@@ -1489,8 +1489,8 @@
                     img.src = event.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800; // AIが文字を読める最適なサイズ
-                        const MAX_HEIGHT = 800;
+                        const MAX_WIDTH = 1000; // AIが文字を読める最適なサイズ
+                        const MAX_HEIGHT = 1000;
                         let width = img.width;
                         let height = img.height;
 
@@ -1520,7 +1520,7 @@
                                 lastModified: Date.now()
                             });
                             resolve(newFile);
-                        }, 'image/jpeg', 0.5); // 70%の画質で圧縮しデータ量を激減
+                        }, 'image/jpeg', 0.8); // 70%の画質で圧縮しデータ量を激減
                     };
                     img.onerror = error => reject(error);
                 };
