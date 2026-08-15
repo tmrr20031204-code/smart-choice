@@ -80,8 +80,16 @@ SYSTEM_INSTRUCTION = """
 }
 """
 
+import re
+
 # グローバル変数としてモデルリストをキャッシュ（超高速化と未来永劫の自動対応を両立）
 _cached_models_to_try = []
+
+def extract_version(name):
+    match = re.search(r'gemini-(\d+\.\d+)-flash', name)
+    if match:
+        return float(match.group(1))
+    return 0.0
 
 def get_dynamic_models():
     global _cached_models_to_try
@@ -89,8 +97,7 @@ def get_dynamic_models():
         return _cached_models_to_try
         
     # 初回（サーバー起動時の1回）のみGoogleのサーバーに最新モデル一覧を取得しに行く
-    # 常に「無料で使える最新モデル」のエイリアスである gemini-flash-latest を最優先
-    base_models = ["gemini-flash-latest"]
+    base_models = []
     try:
         # 今この瞬間に生きていて使えるFlash（無料）モデルを動的に取得
         available = [
@@ -98,14 +105,26 @@ def get_dynamic_models():
             for m in genai.list_models() 
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
         ]
-        # 文字列の降順ソートにより、3.7や4.0などの数字が大きい（新しい）バージョンが自動的に前に来る
-        available.sort(reverse=True)
-        for m in available:
+        
+        # プレビュー版、限定版、Lite版などの不安定・クオータ制限の厳しいモデルを除外（フリーズの根本原因）
+        filtered = [
+            m for m in available 
+            if "preview" not in m and "eap" not in m and "lite" not in m and "omni" not in m
+        ]
+        
+        # バージョン番号（例：3.7, 3.6, 2.5）を抽出して正確に降順ソート
+        filtered.sort(key=lambda x: extract_version(x), reverse=True)
+        
+        for m in filtered:
             if m not in base_models:
                 base_models.append(m)
     except Exception as e:
         print(f"Failed to fetch models: {e}")
         pass
+        
+    # 最後に絶対的な命綱としてエイリアスを追加
+    if "gemini-flash-latest" not in base_models:
+        base_models.append("gemini-flash-latest")
         
     # 取得結果をキャッシュ（以後は通信待機時間ゼロ秒でこのリストを使う）
     _cached_models_to_try = base_models
