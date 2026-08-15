@@ -212,7 +212,8 @@ async def analyze_images(
                         system_instruction=SYSTEM_INSTRUCTION,
                         generation_config={"response_mime_type": "application/json"}
                     )
-                    response = fallback_model.generate_content([prompt] + image_parts)
+                    fallback_prompt = f"【絶対厳守ルール：推測の徹底排除】\n万が一、対象製品・サービスの存在や相場についての「確実な情報（記憶）」がない場合は、決して推測で答えず、必ず評価を「詳細不明（要注意）」としてください。\n\n{prompt}"
+                    response = fallback_model.generate_content([fallback_prompt] + image_parts)
                     break
                 except Exception:
                     continue
@@ -221,7 +222,8 @@ async def analyze_images(
                 return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
             
             try:
-                result_json = json.loads(response.text)
+                clean_text = response.text.replace("```json", "").replace("```", "").strip()
+                result_json = json.loads(clean_text)
             except json.JSONDecodeError:
                 return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
         else:
@@ -244,8 +246,9 @@ async def analyze_images(
             if not response:
                 return {"status": "error", "message": "解析中にAIモデルの利用制限に達しました。"}
             
-            # 応答テキストをJSONとしてパース
-            result_json = json.loads(response.text)
+            # 応答テキストをJSONとしてパース（Markdownの余分な装飾を剥がす）
+            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+            result_json = json.loads(clean_text)
         
         # === Step 3: アフィリエイトリンクの動的付与 ===
         try:

@@ -879,7 +879,15 @@
         const handleFileSelect = (e) => {
             const files = Array.from(e.target.files);
             if (files.length > 0) {
-                globalSelectedFiles = globalSelectedFiles.concat(files);
+                if (globalSelectedFiles.length + files.length > 3) {
+                    alert('画像は最大3枚まで選択可能です。');
+                    const allowed = 3 - globalSelectedFiles.length;
+                    if (allowed > 0) {
+                        globalSelectedFiles = globalSelectedFiles.concat(files.slice(0, allowed));
+                    }
+                } else {
+                    globalSelectedFiles = globalSelectedFiles.concat(files);
+                }
                 updateImagePreviews();
             }
             e.target.value = ''; // allow selecting same file again
@@ -902,6 +910,10 @@
             
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf('image') !== -1) {
+                    if (globalSelectedFiles.length >= 3) {
+                        alert('画像は最大3枚まで選択可能です。');
+                        break;
+                    }
                     const blob = items[i].getAsFile();
                     const file = new File([blob], `screenshot_${Date.now()}_${i}.png`, { type: blob.type });
                     globalSelectedFiles.push(file);
@@ -1001,6 +1013,49 @@
             });
         }
 
+        // クライアント側での画像圧縮処理（最大1200px, JPEG 0.7）
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 1200;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height *= maxDim / width));
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width *= maxDim / height));
+                                height = maxDim;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                }));
+                            } else {
+                                reject(new Error('Canvas toBlob failed'));
+                            }
+                        }, 'image/jpeg', 0.7);
+                    };
+                    img.onerror = error => reject(error);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1077,13 +1132,19 @@
                     renderResult(data);
                 } else {
                     alert('エラーが発生しました: ' + data.message);
-                    resetApp();
+                    // 入力データを保持してローディングだけ解除
+                    document.getElementById('loadingSection').classList.add('hidden');
+                    document.getElementById('loadingSection').classList.remove('flex');
+                    document.getElementById('uploadSection').classList.remove('hidden');
                 }
             } catch (error) {
                 clearInterval(textInterval);
                 console.error(error);
                 alert('サーバーがスリープ状態から復帰中です。\\n約30秒〜1分ほど待ってから、もう一度「解析スタート」を押してください。');
-                resetApp();
+                // 入力データを保持してローディングだけ解除
+                document.getElementById('loadingSection').classList.add('hidden');
+                document.getElementById('loadingSection').classList.remove('flex');
+                document.getElementById('uploadSection').classList.remove('hidden');
             }
         });
 
