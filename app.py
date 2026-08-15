@@ -82,7 +82,53 @@ SYSTEM_INSTRUCTION = """
 
 import re
 
-# シンプルかつ最速の動作を実現するため、不要な関数を削除しました。
+# グローバル変数としてモデルリストをキャッシュ（超高速化と未来永劫の自動対応を両立）
+_cached_models_to_try = []
+
+def extract_version(name):
+    match = re.search(r'gemini-(\d+\.\d+)-flash', name)
+    if match:
+        return float(match.group(1))
+    return 0.0
+
+def get_dynamic_models():
+    global _cached_models_to_try
+    if _cached_models_to_try:
+        return _cached_models_to_try
+        
+    # 初回（サーバー起動時の1回）のみGoogleのサーバーに最新モデル一覧を取得しに行く
+    base_models = []
+    try:
+        # 今この瞬間に生きていて使えるFlash（無料）モデルを動的に取得
+        available = [
+            m.name.replace('models/', '') 
+            for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
+        ]
+        
+        # プレビュー版、限定版、Lite版などの不安定・クオータ制限の厳しいモデルを除外（フリーズの根本原因）
+        filtered = [
+            m for m in available 
+            if "preview" not in m and "eap" not in m and "lite" not in m and "omni" not in m
+        ]
+        
+        # バージョン番号（例：3.7, 3.6, 2.5）を抽出して正確に降順ソート
+        filtered.sort(key=lambda x: extract_version(x), reverse=True)
+        
+        for m in filtered:
+            if m not in base_models:
+                base_models.append(m)
+    except Exception as e:
+        print(f"Failed to fetch models: {e}")
+        pass
+        
+    # 最後に絶対的な命綱としてエイリアスを追加
+    if "gemini-flash-latest" not in base_models:
+        base_models.append("gemini-flash-latest")
+        
+    # 取得結果をキャッシュ（以後は通信待機時間ゼロ秒でこのリストを使う）
+    _cached_models_to_try = base_models
+    return _cached_models_to_try
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
@@ -171,14 +217,10 @@ async def analyze_images(
         else:
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
-        # 翼さんのご指示通り、一覧の動的取得（遅延の原因）を完全に廃止し、「Gemini Flashシリーズ」の基本エイリアスを指定。
-        # 'gemini-flash' はGoogle側で自動的にその時点の最新のFlashモデル（3.7など）へルーティングされるため、
-        # 通信遅延ゼロで、常に無料で最新かつ高精度なモデルが利用可能です。
-        models_to_try = [
-            "gemini-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash"
-        ]
+        # 翼さんのアイデアを完璧な形で実装：
+        # 遅延の原因だった「毎回の一覧取得」を初回1回のみ（キャッシュ化）にすることで待機時間をゼロにしつつ、
+        # 3.7や3.6などの固有名詞を一切ハードコーディングせず、常にGoogleの最新無料モデルを動的に取得・フォールバックする。
+        models_to_try = get_dynamic_models()
         
         # === 1ステップで全解析を完了（処理時間を大幅削減） ===
         # SDKエラーと遅延の元凶であったWeb検索機能への依存を廃止し、最新モデルの内部知識と厳格なハルシネーション対策プロンプトで精度と速度を両立。
