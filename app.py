@@ -166,89 +166,44 @@ async def analyze_images(
         else:
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
-        # 翼さんのアイデアを採用した「完全自動・未来永劫腐らないフォールバック」
-        models_to_try = ["gemini-flash-latest"]
-        try:
-            # Googleサーバーから「今この瞬間に、生きていて使えるFlashモデル」の一覧をリアルタイム取得
-            available_flash_models = [
-                m.name.replace('models/', '') 
-                for m in genai.list_models() 
-                if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
-            ]
-            # 新しいバージョン（数字が大きいもの）を優先してフォールバックに組み込むため降順ソート
-            available_flash_models.sort(reverse=True)
-            
-            for m in available_flash_models:
-                if m not in models_to_try:
-                    models_to_try.append(m)
-        except Exception:
-            # 万が一モデル一覧の取得自体が失敗した時の最終的な命綱（絶対に消えない基本エイリアス）
-            models_to_try.extend(["gemini-1.5-flash", "gemini-flash"])
+        # 翼さんのアイデアを最適化：遅延の原因だったモデル一覧のリアルタイム取得を廃止し、最速・最新のモデルを固定リスト化
+        models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-flash"
+        ]
         
-        # === Step 1: リアルタイムWeb検索による最新相場の取得 ===
-        search_prompt = f"【絶対厳守ルール：推測の徹底排除】\n以下の見積もり内容および（添付があれば）画像を確認し、あなたの過去の記憶（学習データ）には一切頼らず、必ずGoogle検索を用いて「対象製品・サービスの存在（既に発売されているか等）」と「今日の最新の適正相場」をファクトチェックしてください。\nその上で、見積もりが適正か、ぼったくりか、不要な項目があるかを詳細に分析したテキストレポートを作成してください。\n\n{prompt}"
+        # === 1ステップで全解析を完了（処理時間を大幅削減） ===
+        # SDKエラーと遅延の元凶であったWeb検索機能への依存を廃止し、最新モデルの内部知識と厳格なハルシネーション対策プロンプトで精度と速度を両立。
         
-        step1_response_text = ""
+        analysis_prompt = f"【絶対厳守ルール：推測の徹底排除】\n対象製品の存在や適正相場について「確実な最新の知識」がない場合は、絶対に推測や知ったかぶりをせず、必ず評価を「詳細不明（要注意）」としてください。\n\n{prompt}"
+        
+        response = None
         for model_name in models_to_try:
             try:
-                search_model = genai.GenerativeModel(
+                model = genai.GenerativeModel(
                     model_name=model_name,
-                    tools="google_search"
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    generation_config={"response_mime_type": "application/json"}
                 )
-                search_response = search_model.generate_content([search_prompt] + image_parts)
-                step1_response_text = search_response.text
-                if step1_response_text:
+                response = model.generate_content([analysis_prompt] + image_parts)
+                if response and response.text:
                     break
             except Exception as e:
+                print(f"Model {model_name} failed: {e}")
                 continue
-                    
-        # === フォールバック処理（検索が全滅した場合） ===
-        if not step1_response_text:
-            response = None
-            for model_name in models_to_try:
-                try:
-                    fallback_model = genai.GenerativeModel(
-                        model_name=model_name,
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"response_mime_type": "application/json"}
-                    )
-                    fallback_prompt = f"【絶対厳守ルール：推測の徹底排除】\n万が一、対象製品・サービスの存在や相場についての「確実な情報（記憶）」がない場合は、決して推測で答えず、必ず評価を「詳細不明（要注意）」としてください。\n\n{prompt}"
-                    response = fallback_model.generate_content([fallback_prompt] + image_parts)
-                    break
-                except Exception:
-                    continue
+                
+        if not response or not response.text:
+            return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
             
-            if not response:
-                return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
-            
-            try:
-                clean_text = response.text.replace("```json", "").replace("```", "").strip()
-                result_json = json.loads(clean_text)
-            except json.JSONDecodeError:
-                return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
-        else:
-            # === Step 2: 検索結果をJSONフォーマットに整形 ===
-            formatting_prompt = f"以下の「分析レポート（Web検索で裏付けられた最新の事実）」をもとに、指定された厳格なJSONフォーマットに整形して出力してください。推測は一切交えず、レポート内の事実のみに基づき判定してください。\n\n【分析レポート】\n{step1_response_text}"
-            
-            response = None
-            for model_name in models_to_try:
-                try:
-                    json_model = genai.GenerativeModel(
-                        model_name=model_name,
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        generation_config={"response_mime_type": "application/json"}
-                    )
-                    response = json_model.generate_content(formatting_prompt)
-                    break
-                except Exception:
-                    continue
-                        
-            if not response:
-                return {"status": "error", "message": "解析中にAIモデルの利用制限に達しました。"}
-            
+        try:
             # 応答テキストをJSONとしてパース（Markdownの余分な装飾を剥がす）
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             result_json = json.loads(clean_text)
+        except json.JSONDecodeError:
+            return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
         
         # === Step 3: アフィリエイトリンクの動的付与 ===
         try:
