@@ -127,7 +127,8 @@ def get_dynamic_models():
         base_models.append("gemini-flash-latest")
         
     # 取得結果をキャッシュ（以後は通信待機時間ゼロ秒でこのリストを使う）
-    _cached_models_to_try = base_models
+    # リトライ地獄によるフリーズを防ぐため、上位5つだけを厳選して返す
+    _cached_models_to_try = base_models[:5]
     return _cached_models_to_try
 
 @app.get("/", response_class=HTMLResponse)
@@ -230,12 +231,18 @@ async def analyze_images(
         response = None
         for model_name in models_to_try:
             try:
+                from google.api_core import retry
+                
                 model = genai.GenerativeModel(
                     model_name=model_name,
                     system_instruction=SYSTEM_INSTRUCTION,
                     generation_config={"response_mime_type": "application/json"}
                 )
-                response = model.generate_content([analysis_prompt] + image_parts)
+                # リトライによる長時間のフリーズを防ぐため、タイムアウトとリトライ無効化を明示
+                response = model.generate_content(
+                    [analysis_prompt] + image_parts,
+                    request_options={"retry": retry.Retry(initial=0, maximum=0, multiplier=1.0, deadline=15.0), "timeout": 15.0}
+                )
                 if response and response.text:
                     break
             except Exception as e:
