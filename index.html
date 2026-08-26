@@ -1179,6 +1179,8 @@
                 evalCard.classList.add('border-green-300', 'bg-green-50', 'text-green-600');
             } else if (evalValue.includes('お買い得')) {
                 evalCard.classList.add('border-green-500', 'bg-green-100', 'text-green-800');
+            } else if (evalValue.includes('判定不可')) {
+                evalCard.classList.add('border-blue-400', 'bg-blue-50', 'text-blue-800');
             } else {
                 evalCard.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-700');
             }
@@ -1258,6 +1260,12 @@
                     affTitle.textContent = "適正な相場ですが、まだ安くなる可能性があります！";
                     affDesc.textContent = "他の選択肢（他社やネットの価格）と比較することで、さらにお得な「賢い選択」が見つかるかもしれません。";
                     if(affBadgeText) affBadgeText.textContent = "✨ さらに安く！";
+                    affiliateSec.classList.remove('hidden');
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                } else if (evalValue.includes('判定不可')) {
+                    affTitle.textContent = "最新の製品や特殊な項目のため、AIで明確な相場を判定できませんでした。";
+                    affDesc.textContent = "ご検討中の価格が本当に適正かどうか、念のためネット価格と比較してみることをおすすめします。";
+                    if(affBadgeText) affBadgeText.textContent = "✨ 念のため比較";
                     affiliateSec.classList.remove('hidden');
                     affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 } else {
