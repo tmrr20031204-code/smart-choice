@@ -62,7 +62,8 @@ import re
 # グローバル変数としてモデルリストをキャッシュ（通信ゼロ化による超高速化）
 _cached_models_to_try = [
     "gemini-2.5-flash",
-    "gemini-flash"
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash"
 ]
 
 def get_dynamic_models():
