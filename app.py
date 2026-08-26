@@ -166,6 +166,7 @@ async def analyze_images(
         analysis_prompt = f"【注意事項】\n対象製品の存在や適正相場について不確実な点がある場合は、完全に断定せず、確認をおすすめするアドバイスにとどめてください。\n\n{prompt}"
         
         response = None
+        last_error = "Unknown Error"
         for model_name in models_to_try:
             try:
                 from google.api_core import retry
@@ -183,11 +184,12 @@ async def analyze_images(
                 if response and response.text:
                     break
             except Exception as e:
+                last_error = str(e)
                 print(f"Model {model_name} failed: {e}")
                 continue
                 
         if not response or not response.text:
-            return {"status": "error", "message": "利用可能なすべてのAIモデルの制限に達しました。しばらく経ってからお試しください。"}
+            return {"status": "error", "message": f"AIモデルの解析に失敗しました。エラー詳細: {last_error}"}
             
         try:
             # 応答テキストをJSONとしてパース（Markdownの余分な装飾を剥がす）
