@@ -175,10 +175,10 @@ async def analyze_images(
                     system_instruction=SYSTEM_INSTRUCTION,
                     generation_config={"response_mime_type": "application/json"}
                 )
-                # リトライによる長時間のフリーズを防ぐため、タイムアウトとリトライ無効化を明示
+                # 画像解析は数秒〜十数秒かかる場合があるため、タイムアウトを45秒に設定し確実な完了を担保
                 response = model.generate_content(
                     [analysis_prompt] + image_parts,
-                    request_options={"retry": retry.Retry(initial=0, maximum=0, multiplier=1.0, deadline=15.0), "timeout": 15.0}
+                    request_options={"retry": retry.Retry(initial=0, maximum=0, multiplier=1.0, deadline=45.0), "timeout": 45.0}
                 )
                 if response and response.text:
                     break
