@@ -59,14 +59,53 @@ SYSTEM_INSTRUCTION = """
 
 import re
 
-# グローバル変数としてモデルリストをキャッシュ（通信ゼロ化による超高速化）
-_cached_models_to_try = [
-    "gemini-2.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash"
-]
+# グローバル変数としてモデルリストをキャッシュ
+_cached_models_to_try = []
+
+def extract_version(name):
+    import re
+    match = re.search(r'gemini-(\d+\.\d+)-flash', name)
+    if match:
+        return float(match.group(1))
+    return 0.0
 
 def get_dynamic_models():
+    global _cached_models_to_try
+    if _cached_models_to_try:
+        return _cached_models_to_try
+        
+    base_models = []
+    try:
+        # 常にGoogleのサーバーから最新のモデル一覧を全自動取得（未来永劫ハードコード不要）
+        available = [
+            m.name.replace('models/', '') 
+            for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
+        ]
+        
+        # プレビュー版等の不安定なモデルを除外し、安定版のみを抽出
+        filtered = [
+            m for m in available 
+            if "preview" not in m and "eap" not in m and "lite" not in m and "omni" not in m
+        ]
+        
+        # バージョン番号（例: 3.7, 3.6, 2.5）で降順にソート（常に最新が1番目になる）
+        filtered.sort(key=lambda x: extract_version(x), reverse=True)
+        
+        for m in filtered:
+            if m not in base_models:
+                base_models.append(m)
+    except Exception as e:
+        print(f"Failed to fetch models: {e}")
+        pass
+        
+    # 取得結果をキャッシュ。上位5つの最新〜準最新モデルを返すことで絶対にエラーで止まらないようにする
+    if base_models:
+        _cached_models_to_try = base_models[:5]
+    else:
+        # 万が一API取得に失敗した場合は、最新〜準最新モデルをフォールバックとして使用
+        _cached_models_to_try = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+        
     return _cached_models_to_try
 
 @app.get("/", response_class=HTMLResponse)
