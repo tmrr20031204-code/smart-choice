@@ -1033,7 +1033,7 @@
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-                        const maxDim = 1200;
+                        const maxDim = 1600; // OCR・文字認識精度と軽量化（約300KB）の黄金比
                         if (width > maxDim || height > maxDim) {
                             if (width > height) {
                                 height = Math.round((height *= maxDim / width));
@@ -1054,13 +1054,13 @@
                                     lastModified: Date.now()
                                 }));
                             } else {
-                                reject(new Error('Canvas toBlob failed'));
+                                resolve(file); // 失敗時は元ファイルをフォールバック
                             }
-                        }, 'image/jpeg', 0.8);
+                        }, 'image/jpeg', 0.82);
                     };
-                    img.onerror = error => reject(error);
+                    img.onerror = () => resolve(file);
                 };
-                reader.onerror = error => reject(error);
+                reader.onerror = () => resolve(file);
             });
         }
 
@@ -1092,26 +1092,26 @@
             textInterval = setInterval(() => {
                 textIdx = (textIdx + 1) % loadingTexts.length;
                 textEl.textContent = loadingTexts[textIdx];
-            }, 2500);
+            }, 2000);
 
             const formData = new FormData();
             formData.append('category', categorySelect.value);
             
             if (currentInputMode === 'photo') {
-                for (let i = 0; i < globalSelectedFiles.length; i++) {
-                    const file = globalSelectedFiles[i];
-                    try {
-                        const compressedFile = await compressImage(file);
-                        formData.append('files', compressedFile);
-                    } catch (error) {
-                        formData.append('files', file);
-                    }
-                }
+                // すべての画像を並列で瞬時に最適化圧縮
+                const compressedFiles = await Promise.all(
+                    globalSelectedFiles.map(file => compressImage(file))
+                );
+                compressedFiles.forEach(compressedFile => {
+                    formData.append('files', compressedFile);
+                });
+
                 // 写真モードの場合でも、補足テキストがあれば追加する
                 const photoSupp = document.getElementById('photoSupplementaryInput').value.trim();
                 if (photoSupp) {
                     formData.append('text_input', "【写真の補足情報】\n" + photoSupp);
                 }
+            }
             } else {
                 let textData = manualTextInput.value;
                 const contextVal = document.getElementById('manualContextInput').value.trim();
@@ -1295,11 +1295,21 @@
                 if (subEcHeader) subEcHeader.classList.remove('hidden');
             }
 
-            // 楽天市場とYahoo!ショッピングの2ボタン生成（常時配置）
+            // 楽天市場とYahoo!ショッピングの2ボタン生成（常時配置・最安値比較）
             let r_url = "https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6C1VM";
             let y_url = "https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=3777702&pid=892677065";
-            let r_text = '✅ 楽天市場で探す';
-            let y_text = '✅ Yahoo!で探す';
+            let r_inner = `
+                <span class="font-bold text-xs sm:text-sm leading-tight flex items-center justify-center space-x-1">
+                    <span>🛒 楽天市場</span>
+                </span>
+                <span class="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">トップで探す</span>
+            `;
+            let y_inner = `
+                <span class="font-bold text-xs sm:text-sm leading-tight flex items-center justify-center space-x-1">
+                    <span>🛒 Yahoo!</span>
+                </span>
+                <span class="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">トップで探す</span>
+            `;
             
             if (data.search_keyword && data.search_keyword.trim() !== "") {
                 const keyword = encodeURIComponent(data.search_keyword.trim());
@@ -1311,21 +1321,24 @@
                 const ySearchUrl = `https://shopping.yahoo.co.jp/search?p=${keyword}`;
                 y_url = y_url + "&vc_url=" + encodeURIComponent(ySearchUrl);
                 
-                r_text = `楽天で<br><span class="text-[10px] sm:text-xs font-normal opacity-90">『${data.search_keyword.trim()}』を探す</span>`;
-                y_text = `Yahoo!で<br><span class="text-[10px] sm:text-xs font-normal opacity-90">『${data.search_keyword.trim()}』を探す</span>`;
+                const safeKeyword = data.search_keyword.trim();
+                r_inner = `
+                    <span class="font-bold text-xs sm:text-sm leading-tight">🛒 楽天で最安値比較</span>
+                    <span class="text-[10px] sm:text-xs font-normal opacity-90 truncate max-w-full px-1 mt-0.5" title="${safeKeyword}">『${safeKeyword}』</span>
+                `;
+                y_inner = `
+                    <span class="font-bold text-xs sm:text-sm leading-tight">🛒 Yahoo!で最安値比較</span>
+                    <span class="text-[10px] sm:text-xs font-normal opacity-90 truncate max-w-full px-1 mt-0.5" title="${safeKeyword}">『${safeKeyword}』</span>
+                `;
             }
             
             fallbackBtnContainer.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 w-full">
-                    <a href="${r_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-2.5 px-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all shadow-md text-center border-b-4 border-red-800 active:border-b-0 active:translate-y-1">
-                        <span class="font-bold text-xs sm:text-sm leading-tight">
-                            ${r_text}
-                        </span>
+                    <a href="${r_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-2.5 px-2 text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-md text-center border-b-4 border-red-800 active:border-b-0 active:translate-y-1 overflow-hidden">
+                        ${r_inner}
                     </a>
-                    <a href="${y_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-2.5 px-2 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all shadow-md text-center border-b-4 border-orange-700 active:border-b-0 active:translate-y-1">
-                        <span class="font-bold text-xs sm:text-sm leading-tight">
-                            ${y_text}
-                        </span>
+                    <a href="${y_url}" target="_blank" rel="noopener noreferrer" class="group flex flex-col items-center justify-center w-full py-2.5 px-2 text-white bg-orange-500 rounded-xl hover:bg-orange-600 transition-all shadow-md text-center border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 overflow-hidden">
+                        ${y_inner}
                     </a>
                 </div>
             `;
