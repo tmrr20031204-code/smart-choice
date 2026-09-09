@@ -87,7 +87,8 @@ def get_dynamic_models():
     if _cached_models_to_try:
         return _cached_models_to_try
         
-    base_models = []
+    primary_models = []
+    fallback_models = []
     try:
         # 常にGoogleのサーバーから最新のモデル一覧を全自動取得（固有名詞のハードコード完全排除）
         available = [
@@ -96,34 +97,42 @@ def get_dynamic_models():
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
         ]
         
-        # プレビュー版や特殊用途（画像生成特化、音声特化、実験版等、および停止中の旧世代）を除外
+        # 特殊用途（画像生成特化、音声特化、実験版、および停止中の旧世代）を除外
         excluded_keywords = [
-            "preview", "eap", "lite", "omni", "image", "tts", 
+            "preview", "eap", "omni", "image", "tts", 
             "audio", "native", "transcribe", "computer-use", "robotics",
-            "3.5", "3.6"
+            "3.5-flash", "3.6-flash"  # 応答停止中の旧世代通常Flashは除外
         ]
         filtered = [
             m for m in available 
             if not any(k in m for k in excluded_keywords)
         ]
         
-        # バージョン番号で降順ソート（常に最新モデルが1位、準最新が2位、第3位…となる）
-        filtered.sort(key=lambda x: extract_version(x), reverse=True)
+        # 通常の最新Flashモデル（最高精度重視）
+        standard_flash = [m for m in filtered if "lite" not in m]
+        standard_flash.sort(key=lambda x: extract_version(x), reverse=True)
         
-        for m in filtered:
-            if m not in base_models:
-                base_models.append(m)
+        # 高クォータ・超高速の最新Liteモデル（20回上限到達時の無尽蔵フォールバック）
+        lite_flash = [m for m in filtered if "lite" in m]
+        lite_flash.sort(key=lambda x: extract_version(x), reverse=True)
+        
+        # 公式の動的エイリアスも含め、最適な試行順序で構成
+        primary_models = standard_flash
+        fallback_models = lite_flash
+        if "gemini-flash-lite-latest" not in fallback_models:
+            fallback_models.insert(0, "gemini-flash-lite-latest")
+            
+        combined = primary_models + fallback_models
+        for m in combined:
+            if m not in _cached_models_to_try:
+                _cached_models_to_try.append(m)
+                
     except Exception as e:
         print(f"Failed to fetch models: {e}")
         pass
         
-    # 取得結果をキャッシュ。上位5つの最新〜準最新モデルを順次フォールバック用として保持
-    if base_models:
-        _cached_models_to_try = base_models[:5]
-    else:
-        # 万が一Googleの一覧取得API自体が一時通信遮断で失敗した場合も、固有名詞を一切使わず
-        # Google公式の動的最新エイリアスを緊急フォールバックとして使用
-        _cached_models_to_try = ["gemini-flash-latest", "gemini-flash"]
+    if not _cached_models_to_try:
+        _cached_models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-flash"]
         
     return _cached_models_to_try
 
