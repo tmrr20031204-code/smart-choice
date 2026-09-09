@@ -64,8 +64,8 @@ import re
 _cached_models_to_try = []
 
 def extract_version(name):
-    import re
-    match = re.search(r'gemini-(\d+\.\d+)-flash', name)
+    # gemini-3.8-flash や将来の gemini-4-flash / gemini-4.5-flash などのバージョン番号を正確に数値化
+    match = re.search(r'gemini-(\d+(?:\.\d+)?)-flash', name)
     if match:
         return float(match.group(1))
     return 0.0
@@ -77,20 +77,24 @@ def get_dynamic_models():
         
     base_models = []
     try:
-        # 常にGoogleのサーバーから最新のモデル一覧を全自動取得（未来永劫ハードコード不要）
+        # 常にGoogleのサーバーから最新のモデル一覧を全自動取得（固有名詞のハードコード完全排除）
         available = [
             m.name.replace('models/', '') 
             for m in genai.list_models() 
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
         ]
         
-        # プレビュー版等の不安定なモデルを除外し、安定版のみを抽出
+        # プレビュー版や特殊用途（画像生成特化、音声特化、実験版等）を除外し、安定した見積もり解析モデルのみを抽出
+        excluded_keywords = [
+            "preview", "eap", "lite", "omni", "image", "tts", 
+            "audio", "native", "transcribe", "computer-use", "robotics"
+        ]
         filtered = [
             m for m in available 
-            if "preview" not in m and "eap" not in m and "lite" not in m and "omni" not in m
+            if not any(k in m for k in excluded_keywords)
         ]
         
-        # バージョン番号（例: 3.7, 3.6, 2.5）で降順にソート（常に最新が1番目になる）
+        # バージョン番号で降順ソート（常に最新モデルが1位、準最新が2位、第3位…となる）
         filtered.sort(key=lambda x: extract_version(x), reverse=True)
         
         for m in filtered:
@@ -100,12 +104,13 @@ def get_dynamic_models():
         print(f"Failed to fetch models: {e}")
         pass
         
-    # 取得結果をキャッシュ。上位5つの最新〜準最新モデルを返すことで絶対にエラーで止まらないようにする
+    # 取得結果をキャッシュ。上位5つの最新〜準最新モデルを順次フォールバック用として保持
     if base_models:
         _cached_models_to_try = base_models[:5]
     else:
-        # 万が一API取得に失敗した場合は、最新〜準最新モデルをフォールバックとして使用
-        _cached_models_to_try = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+        # 万が一Googleの一覧取得API自体が一時通信遮断で失敗した場合も、固有名詞を一切使わず
+        # Google公式の動的最新エイリアスを緊急フォールバックとして使用
+        _cached_models_to_try = ["gemini-flash-latest", "gemini-flash"]
         
     return _cached_models_to_try
 
