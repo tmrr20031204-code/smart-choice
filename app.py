@@ -22,44 +22,49 @@ GOOGLE_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-SYSTEM_INSTRUCTION = """
-【厳守事項】
-1. 最新かつ正確な情報をユーザーに届ける。ハルシネーション（推測による事実無根の断定）を徹底排除する。
+SYSTEM_INSTRUCTION = """あなたは、見積書・価格・プランを極めて客観的かつ適正に評価する独立系・最高峰の価格監査・相場判定AI「SmartChoice」です。
+
+【判定放棄・思考停止・逃げの絶対禁止（最重要ルール）】
+・「国内未発表」「未発売」「型番不明のため解析不能」「情報がありません」「判定不可」といった理由で、解析・相場推計・適正評価を放棄・回答回避することは【絶対に禁止】です。
+・家電、ガジェット、家具、自動車関連、住宅リフォーム、各種役務サービスなど、あらゆる対象において、型番が完全に特定できない場合や海外モデル・最新型であっても、提示された画像やテキストから読み取れる【スペック・機能・仕様・部材構成・作業工程・提供規模】をプロの専門アナリストとして論理的に分解・精査してください。
+・同等クラスの性能・品質を持つ日本国内市場の実勢相場を客観的に導き出し、「見積もり全体の適正相場（下限〜上限）」を【必ず具体的に算出・明示】してください。
+
+【プロの価格監査原則】
+1. 最新かつ正確な市場知識を論理的に駆使し、ハルシネーション（根拠のないデタラメ）を徹底排除する。
 2. 見積もりの各項目を専門鑑定士の視点で精査し、「相場通りの正当な費用」と「不要・過剰請求・相場超えの費用」を厳密に仕分ける。
-3. ユーザーがそのまま使える論理的かつ角の立たない交渉アドバイスを提供する。
-4. スマホで即座に理解できるよう、冗長な前置きや重複を排し、簡潔・論理的・高品質なテキストを出力する。
+3. ユーザーが不利益を被らないよう、曖昧な「一式」「諸経費」には内訳開示を促し、具体的かつ角の立たない交渉アドバイスを提供する。
+4. スマホで即座に理解できるよう、冗長な前置きや重複を排し、簡潔・論理的・最高品質なテキストを出力する。
 
 【金額・計算ルールの徹底】
 ・見積書の税抜・税込表記を確認し、各項目の金額（price）と削減見込み額（potential_saving）は必ず整数の数値型（number）で出力せよ（カンマや記号不可）。
-・不透明な「諸経費」「一式」の記載には内訳開示を促すこと。
 
-【評価基準とJSON出力】
-必ず以下のJSONフォーマットのみで出力せよ（マークダウン装飾、前置きテキスト不可）。
-"evaluation"は必ず以下のいずれか1つを使用すること。
-・「危険！要注意！」（相場より50%以上安い・高い、または不当な過剰請求・不審点がある）
-・「お買い得」（10%〜50%未満安い）
-・「やや割安」（5%〜10%未満安い）
-・「相場通り」（±5%未満）
-・「やや割高」（5%〜適度に高い）
-・「相場判定不可（要比較）」（判断が困難な特殊な商品・サービスの場合。決して「未発表」「詐欺」と推測しないこと）
+【評価基準（evaluation）】
+必ず以下のいずれか1つを厳密に選定せよ。
+・「危険！要注意！」（相場より大幅に高い/安い、または過剰請求・不審点がある場合）
+・「お買い得」（相場より10%〜50%程度割安で品質・機能が十分な場合）
+・「やや割安」（相場より5%〜10%程度安い場合）
+・「相場通り」（適正相場範囲内（±5%以内）の場合）
+・「やや割高」（相場より5%〜20%程度高い場合）
 
 【EC検索キーワード（search_keyword）の厳格ルール】
-・対象が見積もり対象の有形商品（家電、スマホ、PC、機器、パーツ等）の場合、楽天市場やYahoo!ショッピングで最安値ショップをドンピシャで比較できるよう、必ず「メーカー名 型番・モデル名（例: パナソニック NA-LX129CL、ダイキン S223ATES、Apple iPhone 15 128GB）」をノイズなしでクリーンに出力せよ。
-・無形サービス（引越し、ハウスクリーニング、保険、ガス等の作業費中心）で特定の商品がない場合は、必ず空文字 "" を出力せよ。
+・対象が有形商品（家電、ガジェット、家具、PC、スマホ、部品等）の場合、楽天市場やYahoo!ショッピングで最安値比較ができるよう、最も的確な「メーカー名 型番」または「ジャンル 主要スペック（例: ロボット掃除機 自動ゴミ収集 水拭き）」をノイズなしでクリーンに出力せよ。
+・無形サービス（引越し、リフォーム、保険、ガス等の作業費中心）で特定の商品がない場合は、空文字 "" を出力せよ。
 
+【出力仕様】
+必ず以下のJSONフォーマットのみで出力せよ（マークダウン装飾、前置きテキスト不可）。
 {
   "status": "success",
-  "evaluation": "上記のいずれか",
-  "estimated_total_market_price": "見積もり全体の適正相場（例: '約15万円〜20万円'）※不明な場合は『判定不可』",
-  "infrastructure_check": "スマホで読めるインフラ適合確認結果と注意事項",
+  "evaluation": "上記の評価基準のいずれか1つ",
+  "estimated_total_market_price": "見積もり全体の適正相場（例: '約15万円〜22万円'）。決して判定不可と逃げず必ず相場範囲を明示すること",
+  "infrastructure_check": "スペック・機能の分析、同等モデルとの市場相場比較、購入・契約時の注意点やプロのアドバイス（簡潔かつ具体的・専門的に）",
   "price_analysis": {
-    "itemized_list": [ {"item": "項目名", "price": 0, "status": "相場通り/割高"} ],
+    "itemized_list": [ {"item": "項目名", "price": 0, "status": "相場通り/割高/割安"} ],
     "unnecessary_costs": [ {"item": "項目名", "potential_saving": 0, "reason": "理由"} ]
   },
   "negotiation_script_line": "LINE用の値引き・内訳開示交渉スクリプト",
   "negotiation_script_shop": ["店頭用カンペ1", "店頭用カンペ2"],
   "recommend_ec_search": false,
-  "search_keyword": "商品本体を探すためのクリーンな検索キーワード（メーカー名+型番等）。無形サービスは空文字。"
+  "search_keyword": "商品本体を探すためのクリーンな検索キーワード。無形サービスは空文字。"
 }
 """
 
@@ -91,10 +96,11 @@ def get_dynamic_models():
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
         ]
         
-        # プレビュー版や特殊用途（画像生成特化、音声特化、実験版等）を除外し、安定した見積もり解析モデルのみを抽出
+        # プレビュー版や特殊用途（画像生成特化、音声特化、実験版等、および停止中の旧世代）を除外
         excluded_keywords = [
             "preview", "eap", "lite", "omni", "image", "tts", 
-            "audio", "native", "transcribe", "computer-use", "robotics"
+            "audio", "native", "transcribe", "computer-use", "robotics",
+            "3.5", "3.6"
         ]
         filtered = [
             m for m in available 
@@ -181,15 +187,15 @@ async def analyze_images(
         if category == "車検・整備":
             category_instruction = "【分析対象: 自動車の車検・整備】法定費用（重量税・自賠責・印紙代）は法令で一律のため相場通り。車検基本料（1.5万〜3万円が相場）と推奨整備を厳密に仕分け、不要な各種フラッシング、早期の添加剤、高額消臭コーティング等の過剰オプションを削れる費用として特定してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "家電（冷蔵庫・洗濯機・掃除機など）":
-            category_instruction = "【分析対象: 家電（冷蔵庫・洗濯機・掃除機等）】本体価格がEC等の実勢相場と比較して適正か、リサイクル回収運搬費や特殊設置費用が過剰でないか確認してください。\n※【重要】いかなる場合も必ずJSONの 'recommend_ec_search' を false に設定してください。"
+            category_instruction = "【分析対象: 家電（冷蔵庫・洗濯機・掃除機等）】ロボット掃除機、洗濯機、冷蔵庫、テレビ、季節家電等。型番が完全一致しない場合や未記載でも、LiDAR・水拭き・自動ゴミ収集・容量・インバーター等の【機能・スペック・グレード】から同等の国内市場実勢相場（適正相場範囲）を論理的に算出し、決して『未発表』『判定不可』と逃げないこと。本体価格の妥当性、不要な長期延長保証や高額な設置配送費の有無を監査してください。EC最安値比較用のクリーンな 'search_keyword'（例: 'ロボット掃除機 自動ゴミ収集 水拭き' やメーカー名型番）を出力してください。※'recommend_ec_search' は false に設定してください（提携EC枠を優先活用します）。"
         elif category == "エアコン":
-            category_instruction = "【分析対象: エアコン】標準工事（配管4m、室内外同階設置）は約1.5万〜2万円が相場。配管延長（3,000円〜/m）、専用コンセント増設（1.5万〜2.5万円）、化粧カバー（6,000円〜）、室外機特殊設置等の追加工事費が過剰・重複請求でないか厳格に判定してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
+            category_instruction = "【分析対象: エアコン】畳数能力や機能（自動お掃除、換気等）から本体相場を算出。標準工事（配管4m、室内外同階設置、約1.5万〜2万円）と追加工事費（配管延長3,000円〜/m、専用回路増設1.5万〜2.5万円、化粧カバー等）が過剰・重複請求でないか厳格に判定してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "ハウスクリーニング":
             category_instruction = "【分析対象: ハウスクリーニング】エアコンクリーニング（通常9,000〜1.4万、お掃除機能付1.5万〜2.2万、室外機3,000〜5,000円）など相場を確認し、過度な防カビコーティング等の不要オプションや不当な出張費をチェックしてください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "引越し":
             category_instruction = "【分析対象: 引越し】トラックサイズ（単身2t、ファミリー3t〜4t）と時期（通常期/繁忙期）に応じた適正相場を判定し、有料資材や不要な付帯サポートをチェックし、相見積もりの重要性を伝えてください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "住宅関連":
-            category_instruction = "【分析対象: 住宅リフォーム・外壁塗装・修繕等】足場代（700〜1,000円/㎡）、高圧洗浄（200〜300円/㎡）、外壁3回塗りの確認を行い、不明瞭な『一式』記載や諸経費10〜15%超の割高請求を厳しく指摘してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
+            category_instruction = "【分析対象: 住宅リフォーム・外壁塗装・修繕等】足場代（700〜1,000円/㎡）、高圧洗浄（200〜300円/㎡）、外壁塗装（塗料種別に応じた平米単価）を確認。不明瞭な『一式』記載や諸経費10〜15%超の割高請求を厳しく指摘してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "火災保険":
             category_instruction = "【分析対象: 保険全般（火災・地震・生命・医療・自動車保険等）】火災保険の場合は不要な水災特約や家財補償の過剰設定を点検。生命・医療・自動車保険の場合は、家族間での特約重複（個人賠償責任や弁護士特約）や不要な過剰特約を見抜いてください。\n※【重要】火災保険以外の生命保険・自動車保険・医療保険の場合は、必ず 'recommend_ec_search' を true にしてください。正常な火災保険の場合は false にしてください。"
         elif category == "ガス料金":
@@ -197,11 +203,11 @@ async def analyze_images(
         elif category == "電気料金":
             category_instruction = "【分析対象: 電気料金】基本料金や電力量料金単価、および燃料費調整額の上限撤廃や市場連動型プランのリスクを確認してください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         elif category == "パソコン・スマホ購入・修理":
-            category_instruction = "【分析対象: スマホ・PC・周辺機器】実勢価格や修理代の妥当性を確認し、新品購入時の不要な初期設定サポート（1万〜3万円）や高額な付帯オプションを見抜いてください。\n※【重要】パソコン本体や周辺機器の見積もりの場合は、必ず 'recommend_ec_search' を true にし、'search_keyword' に商品名・型番を出力してください。スマホ・iPhone本体・修理の場合は false にしてください。"
+            category_instruction = "【分析対象: スマホ・PC・周辺機器】CPU・メモリ・SSD容量、画面仕様、修理内容から市場相場を推計。新品購入時の不要な高額初期設定サポート（1万〜3万円）や不要オプションを見抜いてください。パソコン本体や周辺機器の見積もりの場合は、クリーンな 'search_keyword' を設定してください。※'recommend_ec_search' は false に設定してください。"
         elif category == "不用品買取":
             category_instruction = "【分析対象: 不用品買取】出張費・査定料・キャンセル料の無料確認を行い、貴金属やブランド品の不当な安値買い叩き（押し買い）や違法回収費用がないかチェックしてください。※必ずJSONの 'recommend_ec_search' を false に設定してください。"
         else:
-            category_instruction = f"【分析対象: {category}】一般的な市場相場と品質維持の観点から適正価格か精査してください。"
+            category_instruction = f"【分析対象: {category}】型番や名称の直接一致がない場合でも、機能・仕様・構成・役務内容から論理的に同等水準の適正相場を割り出し、客観的かつ厳格に価格の妥当性を監査してください。有形商品であれば 'search_keyword' に最安値比較用の的確なキーワードを設定してください。"
 
         if text_input:
             prompt = f"以下の見積もりテキスト、および（添付があれば）画像を解析し、指定されたJSON形式で分析結果を出力してください。\n\n【見積もりテキスト】\n{text_input}\n\n{category_instruction}"
@@ -213,15 +219,13 @@ async def analyze_images(
         # 3.7や3.6などの固有名詞を一切ハードコーディングせず、常にGoogleの最新無料モデルを動的に取得・フォールバックする。
         models_to_try = get_dynamic_models()
         
-        # === 1ステップで全解析を完了（処理時間を大幅削減） ===
-        # SDKエラーと遅延の元凶であったWeb検索機能への依存を廃止し、最新モデルの内部知識と厳格なハルシネーション対策プロンプトで精度と速度を両立。
+        # === 1ステップで全解析を完了（超高速かつ高精度） ===
+        analysis_prompt = prompt
         
-        analysis_prompt = f"【注意事項】\n対象製品の存在や適正相場について不確実な点がある場合は、完全に断定せず、確認をおすすめするアドバイスにとどめてください。\n\n{prompt}"
-        
-        # 上限超過（429）となったモデルのチェック（1時間経過したものは自動回復させて再挑戦）
+        # 上限超過やエラーとなったモデルのチェック（3分経過したものは自動回復させて再挑戦）
         current_time = time.time()
         active_exhausted = {
-            m for m, t in _exhausted_models.items() if current_time - t < 3600
+            m for m, t in _exhausted_models.items() if current_time - t < 180
         }
         
         # 上限超過モデルを一時的にリストの末尾に回し、今すぐ動くモデルを最優先にして待ち時間をゼロ化
@@ -237,23 +241,22 @@ async def analyze_images(
                     generation_config={
                         "response_mime_type": "application/json",
                         "temperature": 0.2,
-                        "max_output_tokens": 2048
+                        "max_output_tokens": 4096
                     }
                 )
-                # タイムアウト15秒。リトライで粘らず、上限エラーや不達時は「0.1秒」で即座に次のモデルへフォールバック
+                # タイムアウト12秒。リトライで粘らず、上限エラーや不達時は即座に次のモデルへ高速フォールバック
                 response = model.generate_content(
                     [analysis_prompt] + image_parts,
-                    request_options={"timeout": 15.0}
+                    request_options={"timeout": 12.0}
                 )
                 if response and response.text:
                     break
             except Exception as e:
                 last_error = str(e)
-                err_str = str(e)
                 print(f"Model {model_name} failed: {e}")
-                # 429（上限超過）が発生したモデルは記録し、次のユーザーからは最初から生きているモデルで即起動
-                if "429" in err_str or "ResourceExhausted" in err_str:
-                    _exhausted_models[model_name] = time.time()
+                # 429（上限超過）や504（タイムアウト）など、応答不能なモデルは即座に除外キャッシュに記録
+                # 次のユーザーからは生きている高速モデルが最優先で直結され、待機時間を極限まで削減
+                _exhausted_models[model_name] = time.time()
                 continue
                 
         if not response or not response.text:
@@ -264,7 +267,15 @@ async def analyze_images(
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             result_json = json.loads(clean_text)
         except json.JSONDecodeError:
-            return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
+            # 前後に余計なテキストがある場合のフォールバック正規表現抽出
+            json_match = re.search(r'(\{[\s\S]*\})', clean_text)
+            if json_match:
+                try:
+                    result_json = json.loads(json_match.group(1))
+                except Exception:
+                    return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
+            else:
+                return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
         
         # === Step 3: アフィリエイトリンクの動的付与 ===
         try:
