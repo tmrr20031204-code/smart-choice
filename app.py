@@ -64,9 +64,11 @@ SYSTEM_INSTRUCTION = """
 """
 
 import re
+import time
 
-# グローバル変数としてモデルリストをキャッシュ
+# グローバル変数としてモデルリストおよび上限超過モデルをキャッシュ
 _cached_models_to_try = []
+_exhausted_models = {}  # {model_name: timestamp_when_exhausted}
 
 def extract_version(name):
     # gemini-3.8-flash や将来の gemini-4-flash / gemini-4.5-flash などのバージョン番号を正確に数値化
@@ -216,12 +218,19 @@ async def analyze_images(
         
         analysis_prompt = f"【注意事項】\n対象製品の存在や適正相場について不確実な点がある場合は、完全に断定せず、確認をおすすめするアドバイスにとどめてください。\n\n{prompt}"
         
+        # 上限超過（429）となったモデルのチェック（1時間経過したものは自動回復させて再挑戦）
+        current_time = time.time()
+        active_exhausted = {
+            m for m, t in _exhausted_models.items() if current_time - t < 3600
+        }
+        
+        # 上限超過モデルを一時的にリストの末尾に回し、今すぐ動くモデルを最優先にして待ち時間をゼロ化
+        prioritized_models = [m for m in models_to_try if m not in active_exhausted] + [m for m in models_to_try if m in active_exhausted]
+        
         response = None
         last_error = "Unknown Error"
-        for model_name in models_to_try:
+        for model_name in prioritized_models:
             try:
-                from google.api_core import retry
-                
                 model = genai.GenerativeModel(
                     model_name=model_name,
                     system_instruction=SYSTEM_INSTRUCTION,
@@ -231,16 +240,20 @@ async def analyze_images(
                         "max_output_tokens": 2048
                     }
                 )
-                # 画像解析は数秒〜十数秒かかる場合があるため、タイムアウトを45秒に設定し確実な完了を担保
+                # タイムアウト15秒。リトライで粘らず、上限エラーや不達時は「0.1秒」で即座に次のモデルへフォールバック
                 response = model.generate_content(
                     [analysis_prompt] + image_parts,
-                    request_options={"retry": retry.Retry(initial=0, maximum=0, multiplier=1.0, deadline=45.0), "timeout": 45.0}
+                    request_options={"timeout": 15.0}
                 )
                 if response and response.text:
                     break
             except Exception as e:
                 last_error = str(e)
+                err_str = str(e)
                 print(f"Model {model_name} failed: {e}")
+                # 429（上限超過）が発生したモデルは記録し、次のユーザーからは最初から生きているモデルで即起動
+                if "429" in err_str or "ResourceExhausted" in err_str:
+                    _exhausted_models[model_name] = time.time()
                 continue
                 
         if not response or not response.text:
