@@ -171,8 +171,8 @@
                     <p class="font-bold text-gray-800">① スマホで写真を撮るだけ！一瞬で「無駄な費用」を見抜く</p>
                     <p>もらった見積書やレシートの写真、気になる商品のスクリーンショットをアップロードするだけ。エアコン工事の隠れた追加費用から、車検、賃貸、住宅購入まで、AIがすべての項目をくまなくチェック。「相場通り」か「割高・不要」かを瞬時に仕分けし、<strong>「交渉で最大いくら削れるか」の合計金額</strong>を提示します。</p>
                     
-                    <p class="font-bold text-gray-800">② 最新のリアルタイム相場に自動適応（インフレ対応済み）</p>
-                    <p>分析の瞬間に最新のWeb検索（Google検索）を裏側で実行します。増税や急激なインフレ、部品の高騰が起きても、常に「今日のリアルな適正相場」と比較することで、より精度の高い判定を目指します。※AIによる自動判定のため、100%の正確性を保証するものではありません。最終判断は必ずご自身でご確認ください。</p>
+                    <p class="font-bold text-gray-800">② スペック・内訳の精密監査＆リアルタイム最安値照合</p>
+                    <p>製品グレードや仕様、工事の標準工程・部材単価をAIが項目単位で論理的に分解・検算します。さらに楽天市場・Yahoo!ショッピングの最新実売価格ともワンタップで即座に照合できるため、常に納得感のある適正判断が可能です。※AIによる自動推計のため、100%の正確性を保証するものではありません。最終判断は必ずご自身でご確認ください。</p>
                     
                     <p class="font-bold text-gray-800">③ そのままコピペで使える「交渉スクリプト」を自動生成</p>
                     <p>ぼったくりを見つけても、自分で業者に角を立てずに断るのは難しいもの。Smart Choiceは、「相手の気分を害することなく、論理的に不要なオプションを断り、適正価格に導くための交渉メッセージ」を自動で作成します。</p>
@@ -302,6 +302,7 @@
                         <option value="" disabled selected>▼ ジャンルを選択してください</option>
                         
                         <optgroup label="🏠 住まい・インフラ">
+                            <option value="エアコン">エアコン（本体購入・取り付け工事）</option>
                             <option value="住宅関連">リフォーム・外壁塗装・修繕</option>
                             <option value="引越し">引越し</option>
                             <option value="ガス料金">ガス料金（プロパン・都市ガス）</option>
@@ -379,7 +380,7 @@
                                     <!-- 隠しインプット -->
                                     <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
                                     <input type="file" id="albumInput" accept="image/*" multiple class="hidden">
-                                    <input type="file" id="fileInputSelect" multiple class="hidden">
+                                    <input type="file" id="fileInputSelect" accept="image/*,application/pdf" multiple class="hidden">
 
                                     
                                     <p class="text-xs text-gray-500 text-center font-bold pt-1" id="fileCount">選択されていません</p>
@@ -565,7 +566,7 @@
         <footer class="mt-auto bg-gray-50 border-t border-gray-200 p-4 pb-6 text-center">
             <p class="text-[10px] leading-relaxed text-gray-500 max-w-xs mx-auto">
                 【免責事項】<br>
-                当サイトのAI診断結果は、AIによる自動分析（Web検索結果を含む）に基づくシミュレーションであり、その正確性・完全性・最新性を保証するものではありません。相場情報は変動する可能性があり、実際の適正価格と異なる場合があります。当サイトのご利用により生じたいかなるトラブルや損害についても、運営者は一切の責任を負いかねます。最終的なご判断はお客様ご自身の責任で行っていただき、重要な契約・取引の前には専門家への相談を推奨します。
+                当サイトのAI診断結果は、AIによる自動分析・相場推計に基づくシミュレーションであり、その正確性・完全性・最新性を保証するものではありません。相場情報は変動する可能性があり、実際の適正価格と異なる場合があります。当サイトのご利用により生じたいかなるトラブルや損害についても、運営者は一切の責任を負いかねます。最終的なご判断はお客様ご自身の責任で行っていただき、重要な契約・取引の前には専門家への相談を推奨します。
             </p>
             <p class="text-[10px] text-gray-400 mt-2">&copy; 2026 Smart Choice</p>
         </footer>
@@ -577,6 +578,19 @@
     </div>
 
     <script>
+        // HTMLサニタイズ（XSS・文字崩れ防止）
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // 画面表示直後にRenderを裏側で事前起動（0コストPing）
+        fetch('/api/health', { cache: 'no-store' }).catch(() => {});
+
         // サイドメニューとモーダルの制御
         const menuButton = document.getElementById('menuButton');
         const closeMenuButton = document.getElementById('closeMenuButton');
@@ -756,16 +770,16 @@
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-3 hover:border-blue-400 hover:shadow-md transition relative group">
                     <div class="flex justify-between items-center mb-2 cursor-pointer" onclick="loadHistoryItem(${item.id})">
-                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700">${item.category}</span>
-                        <span class="text-xs font-medium text-gray-400 pr-6">${item.date}</span>
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700">${escapeHtml(item.category)}</span>
+                        <span class="text-xs font-medium text-gray-400 pr-6">${escapeHtml(item.date)}</span>
                     </div>
                     <div class="cursor-pointer" onclick="loadHistoryItem(${item.id})">
-                        <div class="font-bold text-gray-700 text-sm mb-2 line-clamp-1 pr-6">${itemName}</div>
+                        <div class="font-bold text-gray-700 text-sm mb-2 line-clamp-1 pr-6">${escapeHtml(itemName)}</div>
                         <div class="flex justify-between items-end mt-1">
-                            <div class="font-bold text-lg tracking-tight text-gray-900">${totalAmount}</div>
+                            <div class="font-bold text-lg tracking-tight text-gray-900">${escapeHtml(totalAmount)}</div>
                             <div class="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded-lg">
                                 <span class="text-sm">${statusIcon}</span>
-                                <span class="font-bold text-xs ${statusTextColor}">${item.data.evaluation || '不明'}</span>
+                                <span class="font-bold text-xs ${statusTextColor}">${escapeHtml(item.data.evaluation || '不明')}</span>
                             </div>
                         </div>
                     </div>
@@ -818,63 +832,129 @@
         categorySelect.addEventListener('change', (e) => {
             const val = e.target.value;
             if (val === 'エアコン') {
-                uploadHint.textContent = 'ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。';
-            } else if (val === '車検・整備') {
-                uploadHint.textContent = '車検や整備の見積書、車検証などの写真を複数選択してください。';
-            } else if (val === '引越し・不用品回収' || val === '引越し' || val === '不用品買取') {
-                uploadHint.textContent = '引越しや不用品回収の見積書などの写真を複数選択してください。';
+                uploadHint.textContent = 'エアコンの見積書や型番がわかる写真、設置場所の写真などを選択してください（PDFも可）。';
             } else if (val === '住宅関連') {
-                uploadHint.textContent = 'リフォームや外壁塗装、修繕の見積書などの写真を複数選択してください。';
-            } else if (val === '保険') {
-                uploadHint.textContent = '現在ご加入中の保険証券や、他社の見積書などの写真を選択してください。';
-            } else if (val === '大型家電（冷蔵庫・洗濯機等）') {
-                uploadHint.textContent = '見積書や、搬入経路（階段・ドアなど）の写真を複数選択してください。';
+                uploadHint.textContent = 'リフォームや外壁塗装、修繕の見積書などの写真を選択してください（複数枚・PDFも可）。';
+            } else if (val === '引越し') {
+                uploadHint.textContent = '引越し見積書や明細がわかる写真を選択してください。';
+            } else if (val === 'ガス料金' || val === '電気料金') {
+                uploadHint.textContent = '検針票（ご使用量のお知らせ）や料金明細の写真を選択してください。';
+            } else if (val === 'ハウスクリーニング') {
+                uploadHint.textContent = 'クリーニングの見積書や料金表の写真を選択してください。';
+            } else if (val === '不用品買取') {
+                uploadHint.textContent = '買取査定書や明細の写真を選択してください。';
+            } else if (val === 'パソコン・スマホ購入・修理') {
+                uploadHint.textContent = '見積書や商品画面のスクリーンショット、レシート等を選択してください。';
+            } else if (val === '家電（冷蔵庫・洗濯機・掃除機など）') {
+                uploadHint.textContent = '商品の値札・見積書・ネット画面のスクリーンショット等を選択してください。';
+            } else if (val === '車検・整備') {
+                uploadHint.textContent = '車検・整備の見積書や明細の写真を選択してください（複数枚も可）。';
+            } else if (val === '火災保険') {
+                uploadHint.textContent = '保険の見積書や現在ご加入中の証券・設計書の写真を選択してください。';
             } else {
-                uploadHint.textContent = '分析したい見積書などの写真を複数選択してください。';
+                uploadHint.textContent = '分析したい見積書や価格がわかる写真を選択してください。';
             }
         });
         
         // グローバルファイル管理変数
         let globalSelectedFiles = [];
 
+        // クライアント側での画像圧縮処理（最大1400px, JPEG 0.80）
+        function compressImage(file) {
+            if (file.type === 'application/pdf') {
+                return Promise.resolve(file);
+            }
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 1400; // OCR文字認識精度と軽量化（約200〜300KB）の黄金比
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height *= maxDim / width));
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width *= maxDim / height));
+                                height = maxDim;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                }));
+                            } else {
+                                resolve(file);
+                            }
+                        }, 'image/jpeg', 0.80);
+                    };
+                    img.onerror = () => resolve(file);
+                };
+                reader.onerror = () => resolve(file);
+            });
+        }
+
         function updateImagePreviews() {
             imagePreviewContainer.innerHTML = '';
             const clearBtn = document.getElementById('clearPhotosBtn');
             
             if (globalSelectedFiles.length > 0) {
-                fileCountText.textContent = `${globalSelectedFiles.length}枚の画像が選択されました`;
+                fileCountText.textContent = `${globalSelectedFiles.length}件のファイルが選択されました`;
                 fileCountText.className = "text-sm text-blue-600 font-bold mt-1";
                 imagePreviewContainer.classList.remove('hidden');
                 if (clearBtn) clearBtn.classList.remove('hidden');
                 
                 globalSelectedFiles.forEach((file, index) => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'relative inline-block m-1';
-                        
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'relative inline-block m-1';
+                    
+                    if (file.type === 'application/pdf') {
+                        // PDF用プレビューカード
+                        const pdfBox = document.createElement('div');
+                        pdfBox.className = 'w-16 h-16 rounded-md border border-gray-200 shadow-sm bg-red-50 flex flex-col items-center justify-center p-1 text-center select-none';
+                        pdfBox.innerHTML = `
+                            <span class="text-xl">📄</span>
+                            <span class="text-[9px] font-bold text-red-700 truncate w-full" title="${escapeHtml(file.name)}">PDF</span>
+                        `;
+                        wrapper.appendChild(pdfBox);
+                    } else {
+                        // 画像用プレビュー
                         const img = document.createElement('img');
-                        img.src = event.target.result;
                         img.className = 'w-16 h-16 object-cover rounded-md border border-gray-200 shadow-sm cursor-pointer hover:opacity-80 transition';
-                        // クリックでモーダル拡大
-                        img.onclick = () => openImageModal(event.target.result);
                         
-                        // 個別削除用バツボタン
-                        const removeBtn = document.createElement('button');
-                        removeBtn.type = 'button';
-                        removeBtn.innerHTML = '✕';
-                        removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow hover:bg-red-600 focus:outline-none leading-none pb-[1px]';
-                        removeBtn.onclick = (e) => {
-                            e.stopPropagation();
-                            globalSelectedFiles.splice(index, 1);
-                            updateImagePreviews();
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            img.src = event.target.result;
+                            img.onclick = () => openImageModal(event.target.result);
                         };
-                        
+                        reader.readAsDataURL(file);
                         wrapper.appendChild(img);
-                        wrapper.appendChild(removeBtn);
-                        imagePreviewContainer.appendChild(wrapper);
+                    }
+                    
+                    // 個別削除用バツボタン
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.innerHTML = '✕';
+                    removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow hover:bg-red-600 focus:outline-none leading-none pb-[1px]';
+                    removeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        globalSelectedFiles.splice(index, 1);
+                        updateImagePreviews();
                     };
-                    reader.readAsDataURL(file);
+                    
+                    wrapper.appendChild(removeBtn);
+                    imagePreviewContainer.appendChild(wrapper);
                 });
             } else {
                 fileCountText.textContent = "選択されていません";
@@ -890,18 +970,34 @@
         const handleFileSelect = (e) => {
             const files = Array.from(e.target.files);
             if (files.length > 0) {
-                if (globalSelectedFiles.length + files.length > 3) {
-                    alert('画像は最大3枚まで選択可能です。');
+                // 20MBガード
+                const validFiles = files.filter(f => {
+                    if (f.size > 20 * 1024 * 1024) {
+                        alert(`「${f.name}」は20MBを超えているため選択できません。`);
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (globalSelectedFiles.length + validFiles.length > 3) {
+                    alert('ファイルは最大3点まで選択可能です。');
                     const allowed = 3 - globalSelectedFiles.length;
                     if (allowed > 0) {
-                        globalSelectedFiles = globalSelectedFiles.concat(files.slice(0, allowed));
+                        const added = validFiles.slice(0, allowed);
+                        added.forEach(f => {
+                            f._compressedPromise = compressImage(f);
+                        });
+                        globalSelectedFiles = globalSelectedFiles.concat(added);
                     }
                 } else {
-                    globalSelectedFiles = globalSelectedFiles.concat(files);
+                    validFiles.forEach(f => {
+                        f._compressedPromise = compressImage(f);
+                    });
+                    globalSelectedFiles = globalSelectedFiles.concat(validFiles);
                 }
                 updateImagePreviews();
             }
-            e.target.value = ''; // allow selecting same file again
+            e.target.value = ''; // 同じファイルの再選択を許可
         };
 
         cameraInput.addEventListener('change', handleFileSelect);
@@ -916,17 +1012,22 @@
 
         // クリップボードからの画像貼り付け（Ctrl+V）に対応
         document.addEventListener('paste', (e) => {
+            if (currentInputMode !== 'photo') return;
+            const anyModalOpen = document.querySelector('#aboutModal:not(.hidden), #historyModal:not(.hidden), #termsModal:not(.hidden), #feedbackModal:not(.hidden), #imageModal:not(.hidden)');
+            if (anyModalOpen) return;
+
             const items = (e.clipboardData || window.clipboardData).items;
             let added = false;
             
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf('image') !== -1) {
                     if (globalSelectedFiles.length >= 3) {
-                        alert('画像は最大3枚まで選択可能です。');
+                        alert('ファイルは最大3点まで選択可能です。');
                         break;
                     }
                     const blob = items[i].getAsFile();
                     const file = new File([blob], `screenshot_${Date.now()}_${i}.png`, { type: blob.type });
+                    file._compressedPromise = compressImage(file);
                     globalSelectedFiles.push(file);
                     added = true;
                 }
@@ -976,7 +1077,7 @@
             recognition = new SpeechRecognition();
             recognition.lang = 'ja-JP';
             recognition.continuous = true;
-            recognition.interimResults = false; // 確定した文だけを取得
+            recognition.interimResults = false;
 
             recognition.onstart = () => {
                 isRecording = true;
@@ -989,9 +1090,10 @@
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         const text = event.results[i][0].transcript;
-                        // 末尾に改行がない場合は改行を入れて追加
-                        manualTextInput.value += (manualTextInput.value.endsWith('\\n') || manualTextInput.value === '' ? '' : '\\n') + text + '\\n';
-                        // 一番下までスクロール
+                        manualTextInput.value += (manualTextInput.value.endsWith('
+') || manualTextInput.value === '' ? '' : '
+') + text + '
+';
                         manualTextInput.scrollTop = manualTextInput.scrollHeight;
                     }
                 }
@@ -1001,7 +1103,11 @@
                 isRecording = false;
                 micButton.classList.remove('bg-red-100', 'text-red-600', 'animate-pulse');
                 micButton.classList.add('bg-gray-200', 'text-gray-600');
-                manualTextInput.placeholder = "入力例：\\n・エアコン本体 60,000円\\n・標準工事費 15,000円\\n・配管延長 8,000円\\n・高所作業費 5,000円";
+                manualTextInput.placeholder = "入力例：
+・エアコン本体 60,000円
+・標準工事費 15,000円
+・配管延長 8,000円
+・高所作業費 5,000円";
             };
 
             recognition.onerror = (event) => {
@@ -1021,49 +1127,6 @@
         } else {
             micButton.addEventListener('click', () => {
                 alert('お使いのブラウザは音声入力に対応していません。SafariやChromeなどの最新版をご利用ください。');
-            });
-        }
-
-        // クライアント側での画像圧縮処理（最大1200px, JPEG 0.7）
-        function compressImage(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = event => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        const maxDim = 1400; // OCR文字認識精度と軽量化（約200〜300KB）の黄金比
-                        if (width > maxDim || height > maxDim) {
-                            if (width > height) {
-                                height = Math.round((height *= maxDim / width));
-                                width = maxDim;
-                            } else {
-                                width = Math.round((width *= maxDim / height));
-                                height = maxDim;
-                            }
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        canvas.toBlob(blob => {
-                            if (blob) {
-                                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-                                    type: 'image/jpeg',
-                                    lastModified: Date.now()
-                                }));
-                            } else {
-                                resolve(file); // 失敗時は元ファイルをフォールバック
-                            }
-                        }, 'image/jpeg', 0.80);
-                    };
-                    img.onerror = () => resolve(file);
-                };
-                reader.onerror = () => resolve(file);
             });
         }
 
@@ -1097,28 +1160,62 @@
                 textEl.textContent = loadingTexts[textIdx];
             }, 2000);
 
+            // 送信直前のスマートヘルスチェック（スリープ復帰待機）
+            let isServerAwake = false;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const pingRes = await fetch('/api/health', { signal: controller.signal, cache: 'no-store' });
+                clearTimeout(timeoutId);
+                if (pingRes.ok) isServerAwake = true;
+            } catch (err) {
+                isServerAwake = false;
+            }
+
+            if (!isServerAwake) {
+                textEl.textContent = "サーバーを起動しています（初回のみ20〜30秒ほどかかります）...";
+                for (let retry = 0; retry < 15; retry++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 2500);
+                        const check = await fetch('/api/health', { signal: controller.signal, cache: 'no-store' });
+                        clearTimeout(timeoutId);
+                        if (check.ok) {
+                            isServerAwake = true;
+                            break;
+                        }
+                    } catch (err) {}
+                }
+                textEl.textContent = loadingTexts[0];
+            }
+
             const formData = new FormData();
             formData.append('category', categorySelect.value);
             
             if (currentInputMode === 'photo') {
-                // すべての画像を並列で瞬時に最適化圧縮
-                const compressedFiles = await Promise.all(
-                    globalSelectedFiles.map(file => compressImage(file))
+                // 事前圧縮済みのPromiseを解決（すでに完了していれば0ms）
+                const finalFiles = await Promise.all(
+                    globalSelectedFiles.map(file => file._compressedPromise || compressImage(file))
                 );
-                compressedFiles.forEach(compressedFile => {
-                    formData.append('files', compressedFile);
+                finalFiles.forEach(file => {
+                    formData.append('files', file);
                 });
 
-                // 写真モードの場合でも、補足テキストがあれば追加する
                 const photoSupp = document.getElementById('photoSupplementaryInput').value.trim();
                 if (photoSupp) {
-                    formData.append('text_input', "【写真の補足情報】\n" + photoSupp);
+                    formData.append('text_input', "【写真の補足情報】
+" + photoSupp);
                 }
             } else {
                 let textData = manualTextInput.value;
                 const contextVal = document.getElementById('manualContextInput').value.trim();
                 if (contextVal) {
-                    textData = "【機種・環境情報】\n" + contextVal + "\n\n【見積もり内容】\n" + textData;
+                    textData = "【機種・環境情報】
+" + contextVal + "
+
+【見積もり内容】
+" + textData;
                 }
                 formData.append('text_input', textData);
             }
@@ -1138,11 +1235,10 @@
                 clearInterval(textInterval);
                 
                 if (data.status === 'success' || !data.message) {
-                    saveHistory(data, categorySelect.value); // 履歴を保存
+                    saveHistory(data, categorySelect.value);
                     renderResult(data);
                 } else {
                     alert('エラーが発生しました: ' + data.message);
-                    // 入力データを保持してローディングだけ解除
                     document.getElementById('loadingSection').classList.add('hidden');
                     document.getElementById('loadingSection').classList.remove('flex');
                     document.getElementById('uploadSection').classList.remove('hidden');
@@ -1150,8 +1246,7 @@
             } catch (error) {
                 clearInterval(textInterval);
                 console.error(error);
-                alert('サーバーがスリープ状態から復帰中です。\\n約30秒〜1分ほど待ってから、もう一度「解析スタート」を押してください。');
-                // 入力データを保持してローディングだけ解除
+                alert('解析通信でエラーが発生しました。インターネット接続をご確認の上、もう一度お試しください。');
                 document.getElementById('loadingSection').classList.add('hidden');
                 document.getElementById('loadingSection').classList.remove('flex');
                 document.getElementById('uploadSection').classList.remove('hidden');
@@ -1180,9 +1275,11 @@
                 marketPriceBadge.classList.remove('inline-flex');
             }
             
-            evalCard.className = "p-5 rounded-xl text-center shadow-sm border-2";
+            evalCard.className = "p-5 rounded-xl text-center shadow-sm border-2 mb-6";
             if (evalValue.includes('危険') || evalValue.includes('要注意') || evalValue.includes('ぼったくり')) {
                 evalCard.classList.add('border-red-400', 'bg-red-50', 'text-red-700');
+            } else if (evalValue.includes('割高（要交渉）')) {
+                evalCard.classList.add('border-orange-500', 'bg-red-50', 'text-red-600');
             } else if (evalValue.includes('やや割高')) {
                 evalCard.classList.add('border-yellow-400', 'bg-orange-50', 'text-orange-700');
             } else if (evalValue.includes('相場通り')) {
@@ -1191,8 +1288,8 @@
                 evalCard.classList.add('border-green-300', 'bg-green-50', 'text-green-600');
             } else if (evalValue.includes('お買い得')) {
                 evalCard.classList.add('border-green-500', 'bg-green-100', 'text-green-800');
-            } else if (evalValue.includes('判定不可')) {
-                evalCard.classList.add('border-blue-400', 'bg-blue-50', 'text-blue-800');
+            } else if (evalValue.includes('情報不足') || evalValue.includes('判定不可')) {
+                evalCard.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-700');
             } else {
                 evalCard.classList.add('border-gray-400', 'bg-gray-50', 'text-gray-700');
             }
@@ -1213,56 +1310,44 @@
             if (data.affiliate_recommendation && data.affiliate_recommendation.is_active) {
                 let rec = data.affiliate_recommendation;
                 hasCustomAffiliate = true;
-
-                // 保険ジャンルの動的ルーティング（不適切なASP遷移の防止）
-                if (rec.name === 'インズウェブ') {
-                    const insType = data.search_keyword || "";
-                    if (insType.includes("生命") || insType.includes("自動車") || insType.includes("医療")) {
-                        // 生命保険や自動車保険の場合は、火災保険のインズウェブを表示しない
-                        hasCustomAffiliate = false;
-                    }
+                
+                affTitle.textContent = rec.title;
+                affDesc.textContent = rec.description;
+                
+                // 動的なYahoo!ショッピング検索URLの生成
+                let finalUrl = rec.url;
+                if (rec.name === "Yahoo!ショッピング" && data.search_keyword && data.search_keyword.trim() !== "") {
+                    const keyword = encodeURIComponent(data.search_keyword.trim());
+                    const ySearchUrl = `https://shopping.yahoo.co.jp/search?p=${keyword}`;
+                    finalUrl = finalUrl + "&vc_url=" + encodeURIComponent(ySearchUrl);
                 }
                 
-                if (hasCustomAffiliate) {
-                    affTitle.textContent = rec.title;
-                    affDesc.textContent = rec.description;
-                    
-                    // 動的なYahoo!ショッピング検索URLの生成
-                    let finalUrl = rec.url;
-                    if (rec.name === "Yahoo!ショッピング" && data.search_keyword && data.search_keyword.trim() !== "") {
-                        const keyword = encodeURIComponent(data.search_keyword.trim());
-                        const ySearchUrl = `https://shopping.yahoo.co.jp/search?p=${keyword}`;
-                        finalUrl = finalUrl + "&vc_url=" + encodeURIComponent(ySearchUrl);
-                    }
-                    
-                    customBtnContainer.classList.remove('hidden');
-                    affiliateLinkBtn.href = finalUrl;
-                    
-                    // 業種に合わせた最高品質のCTAテキスト設定
-                    let ctaText = `✅ ${rec.name}で詳しく見る`;
-                    if (rec.name === "引越し侍" || rec.name === "ヌリカエ" || rec.name === "インズウェブ" || rec.name === "エネピ" || rec.name === "エネチェンジ") {
-                        ctaText = `✅ ${rec.name}で無料一括見積もり・相場比較`;
-                    } else if (rec.name === "楽天Car車検" || rec.name === "福ちゃん" || rec.name === "ユアマイスター" || rec.name === "おそうじ革命" || rec.name === "ダイワンテレコム") {
-                        ctaText = `✅ ${rec.name}で安心の優良店・適正価格をチェック`;
-                    }
-                    
-                    affiliateLinkBtn.innerHTML = `
-                        <span class="text-sm sm:text-base font-bold">${ctaText}</span>
-                        <svg class="w-5 h-5 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                    `;
+                customBtnContainer.classList.remove('hidden');
+                affiliateLinkBtn.href = finalUrl;
+                
+                // 業種に合わせた最高品質のCTAテキスト設定
+                let ctaText = `✅ ${rec.name}で詳しく見る`;
+                if (rec.name === "引越し侍" || rec.name === "ヌリカエ" || rec.name === "インズウェブ" || rec.name === "エネピ" || rec.name === "エネチェンジ") {
+                    ctaText = `✅ ${rec.name}で無料一括見積もり・相場比較`;
+                } else if (rec.name === "楽天Car車検" || rec.name === "福ちゃん" || rec.name === "ユアマイスター" || rec.name === "おそうじ革命" || rec.name === "ダイワンテレコム") {
+                    ctaText = `✅ ${rec.name}で安心の優良店・適正価格をチェック`;
+                }
+                
+                affiliateLinkBtn.innerHTML = `
+                    <span class="text-sm sm:text-base font-bold">${escapeHtml(ctaText)}</span>
+                    <svg class="w-5 h-5 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                `;
 
-                    if (rec.is_high_priority) {
-                        if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
-                        affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-                    } else {
-                        if(affBadgeText) affBadgeText.textContent = "✨ 安心の優良業者";
-                        affiliateSec.className = "fade-in bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-                    }
+                if (rec.is_high_priority) {
+                    if(affBadgeText) affBadgeText.textContent = "🚨 ぼったくり回避！";
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-xl overflow-visible shadow-sm relative mb-6";
+                } else {
+                    if(affBadgeText) affBadgeText.textContent = "✨ 安心の優良業者";
+                    affiliateSec.className = "fade-in bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 }
             }
 
             if (!hasCustomAffiliate) {
-                // 専用ASP提携がない場合のテキスト表示
                 customBtnContainer.classList.add('hidden');
                 if (subEcHeader) subEcHeader.classList.add('hidden');
 
@@ -1282,9 +1367,9 @@
                     affDesc.textContent = "他の選択肢（他社やネットの価格）と比較することで、さらにお得な「賢い選択」が見つかるかもしれません。";
                     if(affBadgeText) affBadgeText.textContent = "✨ さらに安く！";
                     affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
-                } else if (evalValue.includes('判定不可')) {
-                    affTitle.textContent = "最新の製品や特殊な項目のため、AIで明確な相場を判定できませんでした。";
-                    affDesc.textContent = "ご検討中の価格が本当に適正かどうか、念のためネット価格と比較してみることをおすすめします。";
+                } else if (evalValue.includes('情報不足') || evalValue.includes('判定不可')) {
+                    affTitle.textContent = "十分な情報が読み取れなかったため、明確な相場を判定できませんでした。";
+                    affDesc.textContent = "ご検討中の製品やサービスが本当に適正かどうか、念のためネット価格と比較してみることをおすすめします。";
                     if(affBadgeText) affBadgeText.textContent = "✨ 念のため比較";
                     affiliateSec.className = "fade-in bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl overflow-visible shadow-sm relative mb-6";
                 } else {
@@ -1315,15 +1400,13 @@
             
             if (data.search_keyword && data.search_keyword.trim() !== "") {
                 const keyword = encodeURIComponent(data.search_keyword.trim());
-                // Rakuten Search URL
                 const rSearchUrl = `https://search.rakuten.co.jp/search/mall/${keyword}/`;
                 r_url = `https://rpx.a8.net/svt/ejp?a8mat=4B7X58+DSJJAQ+2HOM+6C1VM&rakuten=y&a8ejpredirect=${encodeURIComponent(rSearchUrl)}`;
                 
-                // Yahoo Shopping Search URL
                 const ySearchUrl = `https://shopping.yahoo.co.jp/search?p=${keyword}`;
                 y_url = y_url + "&vc_url=" + encodeURIComponent(ySearchUrl);
                 
-                const safeKeyword = data.search_keyword.trim();
+                const safeKeyword = escapeHtml(data.search_keyword.trim());
                 r_inner = `
                     <span class="font-bold text-xs sm:text-sm leading-tight">🛒 楽天で最安値比較</span>
                     <span class="text-[10px] sm:text-xs font-normal opacity-90 truncate max-w-full px-1 mt-0.5" title="${safeKeyword}">『${safeKeyword}』</span>
@@ -1359,10 +1442,8 @@
             const priceList = document.getElementById('priceList');
             priceList.innerHTML = '';
             if (data.price_analysis && data.price_analysis.itemized_list) {
-                // 見積もりの合計金額の計算
                 const totalPrice = data.price_analysis.itemized_list.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
                 
-                // 合計金額の表示ブロック
                 if (totalPrice > 0) {
                     const totalDiv = document.createElement('div');
                     totalDiv.className = "flex justify-between items-center p-4 mb-3 border-b-2 border-gray-300 bg-white rounded-lg shadow-sm";
@@ -1389,10 +1470,10 @@
                     const div = document.createElement('div');
                     div.className = "flex flex-col p-3 border rounded-lg shadow-sm bg-white";
                     div.innerHTML = `
-                        <div class="font-bold text-gray-800 text-sm mb-2">${item.item}</div>
+                        <div class="font-bold text-gray-800 text-sm mb-2">${escapeHtml(item.item)}</div>
                         <div class="flex justify-between items-center">
                             <span class="text-gray-900 font-bold text-sm tracking-wide">¥${Number(item.price).toLocaleString()}</span>
-                            <span class="px-2 py-1 text-[11px] font-bold rounded-full border ${statusColor} shadow-sm">${icon} ${item.status}</span>
+                            <span class="px-2 py-1 text-[11px] font-bold rounded-full border ${statusColor} shadow-sm">${icon} ${escapeHtml(item.status)}</span>
                         </div>
                     `;
                     priceList.appendChild(div);
@@ -1406,10 +1487,8 @@
             if (data.price_analysis && data.price_analysis.unnecessary_costs && data.price_analysis.unnecessary_costs.length > 0) {
                 unnecSec.classList.remove('hidden');
 
-                // 合計金額の計算
                 const totalSavings = data.price_analysis.unnecessary_costs.reduce((sum, item) => sum + (Number(item.potential_saving) || 0), 0);
                 
-                // 合計金額ブロックの追加
                 const totalDiv = document.createElement('div');
                 totalDiv.className = "bg-red-50 border-2 border-red-300 p-4 rounded-xl mb-4 text-center shadow-sm";
                 totalDiv.innerHTML = `
@@ -1418,7 +1497,6 @@
                 `;
                 unnecList.appendChild(totalDiv);
 
-                // 内訳のラベル
                 const breakdownLabel = document.createElement('p');
                 breakdownLabel.className = "text-xs font-bold text-gray-500 mt-2 mb-2 ml-1";
                 breakdownLabel.textContent = "▼ 削減できる内訳と理由";
@@ -1429,10 +1507,10 @@
                     div.className = "bg-white border border-red-200 p-3 rounded-lg shadow-sm";
                     div.innerHTML = `
                         <div class="flex justify-between items-start mb-1">
-                            <span class="font-bold text-gray-800">${item.item}</span>
+                            <span class="font-bold text-gray-800">${escapeHtml(item.item)}</span>
                             <span class="font-bold text-red-600">-¥${Number(item.potential_saving).toLocaleString()}</span>
                         </div>
-                        <p class="text-xs text-gray-600 leading-relaxed">${item.reason}</p>
+                        <p class="text-xs text-gray-600 leading-relaxed">${escapeHtml(item.reason)}</p>
                     `;
                     unnecList.appendChild(div);
                 });
@@ -1458,7 +1536,6 @@
             if (!window.currentResultData) return;
             const data = window.currentResultData;
             
-            // Generate Share URL with Base64 Encoded JSON
             let shareUrl = window.location.href.split('#')[0];
             try {
                 const jsonStr = JSON.stringify(data);
@@ -1468,17 +1545,23 @@
                 console.error("Encode error", e);
             }
             
-            let shareText = "【Smart Choice 解析結果】\n";
-            shareText += "判定: " + (data.evaluation || "不明") + "\n";
+            let shareText = "【Smart Choice 解析結果】
+";
+            shareText += "判定: " + (data.evaluation || "不明") + "
+";
             
             if (data.price_analysis && data.price_analysis.unnecessary_costs && data.price_analysis.unnecessary_costs.length > 0) {
                 const totalSavings = data.price_analysis.unnecessary_costs.reduce((sum, item) => sum + (Number(item.potential_saving) || 0), 0);
-                shareText += "💰 削減見込み: 約" + totalSavings.toLocaleString() + "円\n\n";
+                shareText += "💰 削減見込み: 約" + totalSavings.toLocaleString() + "円
+
+";
             } else {
-                shareText += "\n";
+                shareText += "
+";
             }
             
-            shareText += "▼ 解析結果の詳細を見る\n" + shareUrl;
+            shareText += "▼ 解析結果の詳細を見る
+" + shareUrl;
             
             if (navigator.share) {
                 navigator.share({
@@ -1494,6 +1577,7 @@
 
         function resetApp() {
             document.getElementById('uploadForm').reset();
+            categorySelect.selectedIndex = 0;
             globalSelectedFiles = [];
             fileCountText.textContent = "選択されていません";
             fileCountText.className = "text-xs text-gray-500";
@@ -1502,6 +1586,13 @@
                 imagePreviewContainer.classList.add('hidden');
                 const clearBtn = document.getElementById('clearPhotosBtn');
                 if (clearBtn) clearBtn.classList.add('hidden');
+            }
+            document.getElementById('photoSupplementaryInput').value = '';
+            document.getElementById('manualContextInput').value = '';
+            document.getElementById('manualTextInput').value = '';
+
+            if (window.location.hash) {
+                history.replaceState(null, '', window.location.pathname + window.location.search);
             }
             
             document.getElementById('resultSection').classList.add('hidden');
@@ -1564,17 +1655,23 @@
                     const jsonStr = decodeURIComponent(escape(atob(base64Data)));
                     const data = JSON.parse(jsonStr);
                     
-                    // 結果画面を描画
+                    document.getElementById('demoSection').classList.add('hidden');
+                    document.getElementById('uploadSection').classList.add('hidden');
+                    const historyHeader = document.getElementById('historyHeaderSection');
+                    if (historyHeader) {
+                        const hTitle = historyHeader.querySelector('h2');
+                        if (hTitle) hTitle.textContent = '共有された解析結果を表示中';
+                        historyHeader.classList.remove('hidden');
+                    }
+                    
                     renderResult(data);
                     
-                    // 共有されたものであることをユーザーに通知し、結果部分へスクロール
                     setTimeout(() => {
                         const resultSec = document.getElementById('resultSection');
-                        if(resultSec) {
+                        if (resultSec) {
                             resultSec.scrollIntoView({ behavior: 'smooth' });
                         }
-                        alert("共有された解析結果を表示しています。\nご自身で見積もりを解析する場合は、画面上部から写真をアップロードしてください。");
-                    }, 800);
+                    }, 200);
                     
                 } catch (e) {
                     console.error("Shared result parsing error", e);
