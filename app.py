@@ -370,14 +370,14 @@ async def analyze_images(
                     generation_config={
                         "response_mime_type": "application/json",
                         "temperature": 0.2,
-                        "max_output_tokens": 2048
+                        "max_output_tokens": 4096
                     }
                 )
                 # 非同期スレッドで実行しイベントループをブロックしない
                 response = await asyncio.to_thread(
                     model.generate_content,
                     [analysis_prompt] + image_parts,
-                    request_options={"timeout": 14.0}
+                    request_options={"timeout": 16.0}
                 )
                 if response and response.text:
                     break
@@ -390,18 +390,24 @@ async def analyze_images(
         if not response or not response.text:
             return {"status": "error", "message": f"AIモデルの解析に失敗しました。エラー詳細: {last_error}"}
             
+        raw_json = None
+        clean_text = response.text.strip()
+        # ```json ... ``` があればそれを最優先抽出
+        json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean_text)
+        candidate = json_block_match.group(1).strip() if json_block_match else clean_text
+
         try:
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
-            raw_json = json.loads(clean_text)
-        except json.JSONDecodeError:
-            json_match = re.search(r'(\{[\s\S]*\})', clean_text)
-            if json_match:
+            raw_json = json.loads(candidate, strict=False)
+        except Exception:
+            brace_match = re.search(r'(\{[\s\S]*\})', candidate)
+            if brace_match:
                 try:
-                    raw_json = json.loads(json_match.group(1))
-                except Exception:
-                    return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
-            else:
-                return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。"}
+                    raw_json = json.loads(brace_match.group(1), strict=False)
+                except Exception as parse_err:
+                    print(f"JSON Parse Error: {parse_err}")
+            
+        if not raw_json or not isinstance(raw_json, dict):
+            return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。もう一度お試しください。"}
         
         # Python自動検算・サニタイズ処理
         result_json = sanitize_and_verify_result(raw_json)
