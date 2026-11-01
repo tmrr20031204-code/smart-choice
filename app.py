@@ -133,13 +133,11 @@ def get_dynamic_models():
         lite_flash = [m for m in filtered if "lite" in m]
         lite_flash.sort(key=lambda x: extract_version(x), reverse=True)
         
-        # 公式の動的エイリアスも含め、最適な試行順序で構成
-        primary_models = standard_flash
-        fallback_models = lite_flash
-        if "gemini-flash-lite-latest" not in fallback_models:
-            fallback_models.insert(0, "gemini-flash-lite-latest")
-            
-        combined = primary_models + fallback_models
+        # 爆速＆安定稼働モデル（Liteおよび2.5-Flash）を最優先にし、待機時間を極限まで削減
+        top_stable = ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
+        discovered_models = [m for m in top_stable if m in filtered or m in available]
+        
+        combined = discovered_models + standard_flash + lite_flash
         for m in combined:
             if m not in discovered_models:
                 discovered_models.append(m)
@@ -151,7 +149,7 @@ def get_dynamic_models():
         print(f"Failed to fetch models: {e}")
         pass
         
-    return ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-flash"]
+    return ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-flash-latest"]
 
 def to_int(val) -> int:
     if isinstance(val, (int, float)):
@@ -169,12 +167,19 @@ def sanitize_and_verify_result(data: dict) -> dict:
     if not isinstance(data, dict):
         return {"status": "error", "message": "無効なデータ形式です。"}
     
-    # 必須キーの補完
-    data["status"] = data.get("status", "success")
-    evaluation = str(data.get("evaluation", "相場通り")).strip()
     valid_evaluations = [
         "お買い得", "やや割安", "相場通り", "やや割高", "割高（要交渉）", "危険！要注意！", "情報不足（要再確認）"
     ]
+    # evaluation の救出（もし status に評価が入っていた場合）
+    if "evaluation" not in data or not data["evaluation"]:
+        raw_status = str(data.get("status", "")).strip()
+        for ve in valid_evaluations:
+            if ve in raw_status:
+                data["evaluation"] = ve
+                break
+    data["status"] = "success"
+
+    evaluation = str(data.get("evaluation", "相場通り")).strip()
     if evaluation not in valid_evaluations:
         matched = False
         for ve in valid_evaluations:
@@ -373,11 +378,11 @@ async def analyze_images(
                         "max_output_tokens": 4096
                     }
                 )
-                # 非同期スレッドで実行しイベントループをブロックしない
+                # 非同期スレッドで実行しイベントループをブロックしない（タイムアウト9秒で高速フォールバック）
                 response = await asyncio.to_thread(
                     model.generate_content,
                     [analysis_prompt] + image_parts,
-                    request_options={"timeout": 16.0}
+                    request_options={"timeout": 9.0}
                 )
                 if response and response.text:
                     break
