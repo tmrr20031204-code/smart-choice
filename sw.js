@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-choice-shell-v2';
+const CACHE_NAME = 'smart-choice-shell-v3';
 const PRECACHE_URLS = [
   '/',
   '/app_icon_v2.png',
@@ -8,22 +8,63 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_URLS);
+      return Promise.all(
+        PRECACHE_URLS.map((url) =>
+          fetch(new Request(url, { cache: 'reload' })).then((res) => {
+            if (res && res.status === 200) {
+              return cache.put(url, res);
+            }
+          })
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
 
+function checkClientAlive(client) {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(false), 600);
+    channel.port1.onmessage = (event) => {
+      clearTimeout(timer);
+      resolve(Boolean(event.data && event.data.alive));
+    };
+    try {
+      client.postMessage({ type: 'CHECK_HEALTH' }, [channel.port2]);
+    } catch (e) {
+      clearTimeout(timer);
+      resolve(false);
+    }
+  });
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    (async () => {
+      const cacheNames = await caches.keys();
+      const hadBrokenV2 = cacheNames.includes('smart-choice-shell-v2');
+      await Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
             return caches.delete(name);
           }
         })
       );
-    }).then(() => self.clients.claim())
+      await self.clients.claim();
+
+      // 破損していたv2キャッシュ保持端末で、古いHTMLが表示されているタブのみ自動復旧
+      if (hadBrokenV2) {
+        const windowClients = await self.clients.matchAll({ type: 'window' });
+        for (const client of windowClients) {
+          const alive = await checkClientAlive(client);
+          if (!alive && 'navigate' in client) {
+            try {
+              await client.navigate(client.url);
+            } catch (e) {}
+          }
+        }
+      }
+    })()
   );
 });
 
@@ -42,7 +83,7 @@ self.addEventListener('fetch', (event) => {
       new Promise((resolve) => {
         let isResolved = false;
 
-        // 1.5秒タイムアウトタイマー
+        // 1.5秒タイムアウトタイマー（Renderスリープ時の体感0秒起動）
         const timer = setTimeout(() => {
           if (!isResolved) {
             caches.match('/').then((cached) => {
@@ -54,8 +95,8 @@ self.addEventListener('fetch', (event) => {
           }
         }, 1500);
 
-        // ネットワーク取得
-        fetch(req).then((networkRes) => {
+        // ネットワーク取得（HTTPキャッシュをバイパスして最新HTMLを取得）
+        fetch(req, { cache: 'no-store' }).then((networkRes) => {
           clearTimeout(timer);
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();

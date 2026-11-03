@@ -269,7 +269,10 @@ async def health_check():
 async def get_index():
     index_path = os.path.join(BASE_DIR, "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
-        return f.read()
+        return HTMLResponse(
+            content=f.read(),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 @app.get("/icon.png")
 async def get_icon():
@@ -296,8 +299,29 @@ async def get_manifest():
 async def get_sw():
     sw_path = os.path.join(BASE_DIR, "sw.js")
     if os.path.exists(sw_path):
-        return FileResponse(sw_path, media_type="application/javascript")
+        return FileResponse(
+            sw_path,
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
     raise HTTPException(status_code=404, detail="Service Worker not found")
+
+def resolve_mime_type(filename: Optional[str], content_type: Optional[str]) -> str:
+    ct = (content_type or "").strip().lower()
+    if ct and ct != "application/octet-stream" and ("/" in ct):
+        return ct
+    ext = os.path.splitext(filename or "")[1].lower()
+    ext_map = {
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".heic": "image/heic",
+        ".heif": "image/heif",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+    }
+    return ext_map.get(ext, "image/jpeg")
 
 @app.post("/api/analyze")
 async def analyze_images(
@@ -318,10 +342,16 @@ async def analyze_images(
                     if contents:
                         image_parts.append(
                             {
-                                "mime_type": getattr(file, "content_type", "image/jpeg"),
+                                "mime_type": resolve_mime_type(
+                                    getattr(file, "filename", None),
+                                    getattr(file, "content_type", None)
+                                ),
                                 "data": contents
                             }
                         )
+
+        if not image_parts and not (text_input and text_input.strip()):
+            return {"status": "error", "message": "解析する画像・PDFまたはテキストを入力してください。"}
             
         # カテゴリに応じた固有の指示をプロンプトに追加
         category_instruction = ""
@@ -367,7 +397,7 @@ async def analyze_images(
         
         response = None
         last_error = "Unknown Error"
-        for model_name in prioritized_models:
+        for model_name in prioritized_models[:4]:
             try:
                 model = genai.GenerativeModel(
                     model_name=model_name,
@@ -378,11 +408,11 @@ async def analyze_images(
                         "max_output_tokens": 4096
                     }
                 )
-                # 非同期スレッドで実行しイベントループをブロックしない（タイムアウト9秒で高速フォールバック）
+                # 非同期スレッドで実行しイベントループをブロックしない（高精細画像3枚・PDFでも途中切断しない18秒上限）
                 response = await asyncio.to_thread(
                     model.generate_content,
                     [analysis_prompt] + image_parts,
-                    request_options={"timeout": 9.0}
+                    request_options={"timeout": 18.0}
                 )
                 if response and response.text:
                     break

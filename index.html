@@ -591,6 +591,15 @@
         // 画面表示直後にRenderを裏側で事前起動（0コストPing）
         fetch('/api/health', { cache: 'no-store' }).catch(() => {});
 
+        // Service Workerからの生存確認に応答（破損キャッシュ保持端末の自動復旧用）
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'CHECK_HEALTH' && event.ports && event.ports[0]) {
+                    event.ports[0].postMessage({ alive: true });
+                }
+            });
+        }
+
         // サイドメニューとモーダルの制御
         const menuButton = document.getElementById('menuButton');
         const closeMenuButton = document.getElementById('closeMenuButton');
@@ -1046,6 +1055,9 @@
         ];
         let textInterval;
 
+        const tabPhoto = document.getElementById('tabPhoto');
+        const tabText = document.getElementById('tabText');
+        const photoInputArea = document.getElementById('photoInputArea');
         const textInputArea = document.getElementById('textInputArea');
         const manualTextInput = document.getElementById('manualTextInput');
         let currentInputMode = 'photo'; // 'photo' or 'text'
@@ -1090,10 +1102,7 @@
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         const text = event.results[i][0].transcript;
-                        manualTextInput.value += (manualTextInput.value.endsWith('
-') || manualTextInput.value === '' ? '' : '
-') + text + '
-';
+                        manualTextInput.value += (manualTextInput.value.endsWith('\n') || manualTextInput.value === '' ? '' : '\n') + text + '\n';
                         manualTextInput.scrollTop = manualTextInput.scrollHeight;
                     }
                 }
@@ -1103,11 +1112,7 @@
                 isRecording = false;
                 micButton.classList.remove('bg-red-100', 'text-red-600', 'animate-pulse');
                 micButton.classList.add('bg-gray-200', 'text-gray-600');
-                manualTextInput.placeholder = "入力例：
-・エアコン本体 60,000円
-・標準工事費 15,000円
-・配管延長 8,000円
-・高所作業費 5,000円";
+                manualTextInput.placeholder = "入力例：\n・エアコン本体 60,000円\n・標準工事費 15,000円\n・配管延長 8,000円\n・高所作業費 5,000円";
             };
 
             recognition.onerror = (event) => {
@@ -1130,8 +1135,10 @@
             });
         }
 
+        let isSubmitting = false;
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (isSubmitting) return;
             
             if (!categorySelect.value) {
                 alert('▼ ジャンルを選択してください');
@@ -1147,6 +1154,7 @@
                 return;
             }
 
+            isSubmitting = true;
             document.getElementById('uploadSection').classList.add('hidden');
             document.getElementById('resultSection').classList.add('hidden');
             document.getElementById('loadingSection').classList.remove('hidden');
@@ -1190,6 +1198,7 @@
                 textEl.textContent = loadingTexts[0];
             }
 
+            try {
             const formData = new FormData();
             formData.append('category', categorySelect.value);
             
@@ -1204,23 +1213,16 @@
 
                 const photoSupp = document.getElementById('photoSupplementaryInput').value.trim();
                 if (photoSupp) {
-                    formData.append('text_input', "【写真の補足情報】
-" + photoSupp);
+                    formData.append('text_input', "【写真の補足情報】\n" + photoSupp);
                 }
             } else {
                 let textData = manualTextInput.value;
                 const contextVal = document.getElementById('manualContextInput').value.trim();
                 if (contextVal) {
-                    textData = "【機種・環境情報】
-" + contextVal + "
-
-【見積もり内容】
-" + textData;
+                    textData = "【機種・環境情報】\n" + contextVal + "\n\n【見積もり内容】\n" + textData;
                 }
                 formData.append('text_input', textData);
             }
-
-            try {
                 const response = await fetch('/api/analyze', {
                     method: 'POST',
                     body: formData
@@ -1250,6 +1252,8 @@
                 document.getElementById('loadingSection').classList.add('hidden');
                 document.getElementById('loadingSection').classList.remove('flex');
                 document.getElementById('uploadSection').classList.remove('hidden');
+            } finally {
+                isSubmitting = false;
             }
         });
 
@@ -1545,23 +1549,17 @@
                 console.error("Encode error", e);
             }
             
-            let shareText = "【Smart Choice 解析結果】
-";
-            shareText += "判定: " + (data.evaluation || "不明") + "
-";
+            let shareText = "【Smart Choice 解析結果】\n";
+            shareText += "判定: " + (data.evaluation || "不明") + "\n";
             
             if (data.price_analysis && data.price_analysis.unnecessary_costs && data.price_analysis.unnecessary_costs.length > 0) {
                 const totalSavings = data.price_analysis.unnecessary_costs.reduce((sum, item) => sum + (Number(item.potential_saving) || 0), 0);
-                shareText += "💰 削減見込み: 約" + totalSavings.toLocaleString() + "円
-
-";
+                shareText += "💰 削減見込み: 約" + totalSavings.toLocaleString() + "円\n\n";
             } else {
-                shareText += "
-";
+                shareText += "\n";
             }
             
-            shareText += "▼ 解析結果の詳細を見る
-" + shareUrl;
+            shareText += "▼ 解析結果の詳細を見る\n" + shareUrl;
             
             if (navigator.share) {
                 navigator.share({
@@ -1595,8 +1593,12 @@
                 history.replaceState(null, '', window.location.pathname + window.location.search);
             }
             
+            if (uploadHint) {
+                uploadHint.textContent = 'ご希望の商品の見積書やレシート、スクリーンショット等を選択してください。';
+            }
             document.getElementById('resultSection').classList.add('hidden');
             document.getElementById('loadingSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.remove('flex');
             document.getElementById('demoSection').classList.remove('hidden');
             const historyHeader = document.getElementById('historyHeaderSection');
             if(historyHeader) historyHeader.classList.add('hidden');
@@ -1683,7 +1685,8 @@
         // Service Workerの登録（完全なPWA要件を満たすため）
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
+                navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(registration => {
+                    registration.update().catch(() => {});
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                 }, err => {
                     console.log('ServiceWorker registration failed: ', err);
