@@ -3,6 +3,7 @@ import json
 import re
 import time
 import asyncio
+from contextlib import asynccontextmanager
 from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
@@ -11,7 +12,13 @@ import google.generativeai as genai
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # サーバー起動時に裏側で最新モデル一覧を事前キャッシュ
+    asyncio.create_task(asyncio.to_thread(get_dynamic_models))
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # 既存プロジェクトとの隔離のため、環境変数から取得します。
@@ -114,15 +121,15 @@ def get_dynamic_models():
             if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
         ]
         
-        # 特殊用途（画像生成特化、音声特化、実験版、および停止中の旧世代）を除外
+        # 特殊用途（画像生成特化、音声特化、実験版、および停止中の旧世代通常Flash）を除外
         excluded_keywords = [
             "preview", "eap", "omni", "image", "tts", 
-            "audio", "native", "transcribe", "computer-use", "robotics",
-            "3.5-flash", "3.6-flash"  # 応答停止中の旧世代通常Flashは除外
+            "audio", "native", "transcribe", "computer-use", "robotics"
         ]
+        excluded_exact = {"gemini-3.5-flash", "gemini-3.6-flash"}
         filtered = [
             m for m in available 
-            if not any(k in m for k in excluded_keywords)
+            if not any(k in m for k in excluded_keywords) and m not in excluded_exact
         ]
         
         # 通常の最新Flashモデル（最高精度重視）
@@ -256,10 +263,22 @@ def sanitize_and_verify_result(data: dict) -> dict:
 
     return data
 
-@app.on_event("startup")
-async def startup_event():
-    # サーバー起動時に裏側で最新モデル一覧を事前キャッシュ
-    asyncio.create_task(asyncio.to_thread(get_dynamic_models))
+_affiliate_cache = {"mtime": 0.0, "data": {}}
+
+def get_affiliate_config() -> dict:
+    config_path = os.path.join(BASE_DIR, "affiliate_config.json")
+    if not os.path.exists(config_path):
+        return {}
+    try:
+        mtime = os.path.getmtime(config_path)
+        if mtime != _affiliate_cache["mtime"] or not _affiliate_cache["data"]:
+            with open(config_path, "r", encoding="utf-8") as f:
+                _affiliate_cache["data"] = json.load(f)
+                _affiliate_cache["mtime"] = mtime
+        return _affiliate_cache["data"]
+    except Exception as e:
+        print(f"Affiliate config load error: {e}")
+        return _affiliate_cache.get("data", {})
 
 @app.get("/api/health")
 async def health_check():
@@ -275,12 +294,6 @@ async def get_index():
         )
 
 @app.get("/icon.png")
-async def get_icon():
-    icon_path = os.path.join(BASE_DIR, "icon.png")
-    if os.path.exists(icon_path):
-        return FileResponse(icon_path)
-    raise HTTPException(status_code=404, detail="Icon not found")
-
 @app.get("/app_icon_v2.png")
 async def get_icon_v2():
     icon_path = os.path.join(BASE_DIR, "app_icon_v2.png")
@@ -333,12 +346,18 @@ async def analyze_images(
         raise HTTPException(status_code=500, detail="GEMINI_API_KEYが設定されていません。環境変数を設定してください。")
     
     try:
+        MAX_FILES = 3
+        MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
         image_parts = []
         if files:
             file_list = files if isinstance(files, (list, tuple)) else [files]
+            if len(file_list) > MAX_FILES:
+                return {"status": "error", "message": f"ファイルは最大{MAX_FILES}点まで選択可能です。"}
             for file in file_list:
                 if hasattr(file, "read"):
-                    contents = await file.read()
+                    contents = await file.read(MAX_FILE_SIZE + 1)
+                    if len(contents) > MAX_FILE_SIZE:
+                        return {"status": "error", "message": "1ファイルあたり20MB以下のファイルを選択してください。"}
                     if contents:
                         image_parts.append(
                             {
@@ -451,26 +470,22 @@ async def analyze_images(
 
         # === Step 3: アフィリエイトリンクの動的付与 ===
         try:
-            config_path = os.path.join(BASE_DIR, "affiliate_config.json")
-            if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
-                    affiliate_config = json.load(f)
+            affiliate_config = get_affiliate_config()
+            if category in affiliate_config:
+                recommend_ec = result_json.get("recommend_ec_search", False)
                 
-                if category in affiliate_config:
-                    recommend_ec = result_json.get("recommend_ec_search", False)
+                if not recommend_ec:
+                    eval_text = result_json.get("evaluation", "")
+                    is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
                     
-                    if not recommend_ec:
-                        eval_text = result_json.get("evaluation", "")
-                        is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
-                        
-                        result_json["affiliate_recommendation"] = {
-                            "is_active": True,
-                            "is_high_priority": is_high_priority,
-                            "title": affiliate_config[category]["title"],
-                            "name": affiliate_config[category]["name"],
-                            "url": affiliate_config[category]["url"],
-                            "description": affiliate_config[category]["description"]
-                        }
+                    result_json["affiliate_recommendation"] = {
+                        "is_active": True,
+                        "is_high_priority": is_high_priority,
+                        "title": affiliate_config[category]["title"],
+                        "name": affiliate_config[category]["name"],
+                        "url": affiliate_config[category]["url"],
+                        "description": affiliate_config[category]["description"]
+                    }
         except Exception as e:
             print(f"Affiliate config error: {e}")
             pass
