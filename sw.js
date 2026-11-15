@@ -133,7 +133,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
         return networkRes;
-      }).catch(() => null);
+      }).catch(() => new Response('', { status: 504, statusText: 'Offline' }));
 
       return cached || fetchPromise;
     })
