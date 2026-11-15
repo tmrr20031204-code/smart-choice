@@ -140,32 +140,52 @@ SYSTEM_INSTRUCTION = """あなたは、見積書・価格・プランを極め�
 }
 """
 
-# グローバル変数としてモデルリストおよび上限超過モデルをキャッシュ
-_cached_models_to_try = []
-_exhausted_models = {}  # {model_name: timestamp_when_exhausted}
+# モデルリストTTLキャッシュおよび自律学習ペナルティ（ハードコードゼロ設計）
+MODELS_CACHE_TTL_SEC = 6 * 3600  # 6時間ごとに最新モデル一覧を自動再取得
+HEDGE_DELAY_SEC = 12.0           # 非Liteモデルが12秒以内に返らない場合、高速Lite系を保険並行起動
+
+_models_cache = {"models": [], "fetched_at": 0.0}
+_model_penalties = {}  # {model_name: timestamp_until_penalty_expires (inf = 404永久除外)}
+
 
 def extract_version(name: str) -> float:
-    # gemini-3.8-flash や将来の gemini-4-flash / gemini-4.5-flash などのバージョン番号を正確に数値化
-    match = re.search(r'gemini-(\d+(?:\.\d+)?)[^/]*flash', name)
+    """gemini-4-hydrogen / gemini-4.5-flash-lite / gemini-5-... の世代番号を汎用抽出する。"""
+    match = re.search(r'gemini-(\d+(?:\.\d+)?)', name)
     if match:
         return float(match.group(1))
     return 0.0
 
-def get_dynamic_models():
-    global _cached_models_to_try
-    if _cached_models_to_try:
-        return _cached_models_to_try
 
-    fallback_default = [
-        "gemini-4-hydrogen",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-3.5-flash-lite",
-    ]
+def model_sort_key(name: str) -> tuple:
+    """固有モデル名に依存せず、系統（hydrogen > flash-lite > flash）と世代番号で自動ランク付けする。"""
+    if "hydrogen" in name:
+        tier = 0
+    elif "lite" in name:
+        tier = 1
+    else:
+        tier = 2
+
+    ver = extract_version(name)
+    is_rolling_latest = 1 if "latest" in name and ver == 0.0 else 0
+    # バージョンがない *-latest エイリアスは各系統の中堅フォールバックとして扱う
+    effective_ver = ver if ver > 0.0 else 3.0
+    return (tier, -effective_ver, is_rolling_latest, name)
+
+
+def get_dynamic_models(force_refresh: bool = False) -> list[str]:
+    now = time.time()
+    if (
+        not force_refresh
+        and _models_cache["models"]
+        and (now - _models_cache["fetched_at"]) < MODELS_CACHE_TTL_SEC
+    ):
+        return _models_cache["models"]
+
+    # 取得失敗時のみの汎用ローリングエイリアス（特定バージョンのハードコード排除）
+    emergency_aliases = ["gemini-flash-lite-latest", "gemini-flash-latest"]
     if not genai_client:
-        return fallback_default
+        return emergency_aliases
 
-    discovered_models = []
     try:
         available = []
         for m in genai_client.models.list():
@@ -174,65 +194,68 @@ def get_dynamic_models():
             if "generateContent" in actions and ("flash" in name or "hydrogen" in name):
                 available.append(name)
 
-        # 特殊用途（画像生成特化、音声特化、実験版）および実測上停止・クォータ不可・遅延傾向のモデルを除外
-        excluded_keywords = [
+        # 特殊用途（画像生成・音声・実験版・リアルタイム・研究用等）のみを汎用キーワードで除外
+        excluded_keywords = (
             "preview", "eap", "omni", "image", "tts",
-            "audio", "native", "transcribe", "computer-use", "robotics",
-        ]
-        excluded_exact = {
-            "gemini-2.5-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.8-flash",
-            "gemini-flash-latest",
-            "gemini-4-argon",
-            "gemini-4-carbon",
-        }
-        filtered = [
-            m for m in available
-            if not any(k in m for k in excluded_keywords) and m not in excluded_exact
-        ]
+            "audio", "native", "transcribe", "computer-use",
+            "robotics", "live", "research", "embedding",
+        )
+        filtered = [m for m in available if not any(k in m for k in excluded_keywords)]
+        filtered.sort(key=model_sort_key)
 
-        # 実測で速度・誠実性・精度のバランスが実証された最適優先順
-        top_priority = [
-            "gemini-4-hydrogen",
-            "gemini-3.1-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-flash-lite-latest",
-        ]
-        discovered_models = [m for m in top_priority if m in filtered or m in available]
-
-        standard_flash = [m for m in filtered if "lite" not in m and m not in discovered_models]
-        standard_flash.sort(key=lambda x: extract_version(x), reverse=True)
-
-        lite_flash = [m for m in filtered if "lite" in m and m not in discovered_models]
-        lite_flash.sort(key=lambda x: extract_version(x), reverse=True)
-
-        for m in standard_flash + lite_flash:
-            if m not in discovered_models:
-                discovered_models.append(m)
-
-        if discovered_models:
-            _cached_models_to_try = discovered_models
-            return _cached_models_to_try
+        if filtered:
+            _models_cache["models"] = filtered
+            _models_cache["fetched_at"] = now
+            return filtered
     except Exception as e:
         print(f"Failed to fetch models: {e}")
 
-    return fallback_default
+    return _models_cache["models"] or emergency_aliases
 
 
-def build_model_config(model_name: str) -> tuple[types.GenerateContentConfig, int]:
-    """モデル特性に応じた最適化パラメータ（思考量・タイムアウトms）を返す。"""
-    if model_name == "gemini-4-hydrogen":
+def classify_penalty_seconds(err: Exception) -> float:
+    """エラー内容からモデルごとの再試行クールダウン秒数を自動学習する。"""
+    msg = str(err).lower()
+    if "404" in msg or "not_found" in msg or "no longer available" in msg or "not found" in msg:
+        return float("inf")
+    if "429" in msg or "resource_exhausted" in msg or "quota" in msg or "rate limit" in msg:
+        return 3600.0
+    if isinstance(err, asyncio.TimeoutError) or "504" in msg or "deadline" in msg or "timed out" in msg:
+        return 1800.0
+    return 300.0
+
+
+def record_model_failure(model_name: str, err: Exception) -> None:
+    penalty_sec = classify_penalty_seconds(err)
+    _model_penalties[model_name] = float("inf") if penalty_sec == float("inf") else time.time() + penalty_sec
+
+
+def get_prioritized_models() -> list[str]:
+    """ペナルティ中でないモデルを優先し、404永久除外モデルは最後に回す（または除外する）。"""
+    models = get_dynamic_models()
+    now = time.time()
+    healthy = []
+    cooling = []
+    for m in models:
+        until = _model_penalties.get(m, 0.0)
+        if until <= now:
+            healthy.append(m)
+        elif until != float("inf"):
+            cooling.append((until, m))
+    cooling.sort(key=lambda x: x[0])
+    return healthy + [m for _, m in cooling]
+
+
+def build_model_config(model_name: str, allow_thinking_cfg: bool = True) -> tuple[types.GenerateContentConfig, int]:
+    """系統ルールに基づき思考量・タイムアウトmsを動的設定する（固有モデル名非依存）。"""
+    if "hydrogen" in model_name:
         timeout_ms = 24000
-        thinking_cfg = types.ThinkingConfig(thinking_budget=128)
-    elif model_name == "gemini-2.5-flash":
-        timeout_ms = 25000
+        thinking_cfg = types.ThinkingConfig(thinking_budget=128) if allow_thinking_cfg else None
+    elif "lite" in model_name:
+        timeout_ms = 18000
         thinking_cfg = None
     else:
-        timeout_ms = 18000
+        timeout_ms = 24000
         thinking_cfg = None
 
     cfg = types.GenerateContentConfig(
@@ -249,6 +272,118 @@ def build_model_config(model_name: str) -> tuple[types.GenerateContentConfig, in
         ),
     )
     return cfg, timeout_ms
+
+
+async def call_model_once(model_name: str, contents: list):
+    """単一モデルを呼び出す。thinking_config非対応の400エラー時は設定を外して自動再試行する。"""
+    config, timeout_ms = build_model_config(model_name, allow_thinking_cfg=True)
+    try:
+        resp = await asyncio.wait_for(
+            asyncio.to_thread(
+                genai_client.models.generate_content,
+                model=model_name,
+                contents=contents,
+                config=config,
+            ),
+            timeout=(timeout_ms / 1000.0) + 2.0,
+        )
+        if not resp or not resp.text:
+            raise RuntimeError(f"Empty response from {model_name}")
+        return resp
+    except Exception as e:
+        err_str = str(e).lower()
+        if config.thinking_config is not None and ("400" in err_str or "invalid_argument" in err_str) and "thinking" in err_str:
+            fallback_cfg, fallback_ms = build_model_config(model_name, allow_thinking_cfg=False)
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    genai_client.models.generate_content,
+                    model=model_name,
+                    contents=contents,
+                    config=fallback_cfg,
+                ),
+                timeout=(fallback_ms / 1000.0) + 2.0,
+            )
+            if not resp or not resp.text:
+                raise RuntimeError(f"Empty response from {model_name}")
+            return resp
+        raise
+
+
+async def generate_with_smart_fallback(contents: list):
+    """動的ランキング＋自動学習降格＋時間差ヘッジで確実に最良レスポンスを返す。"""
+    prioritized = get_prioritized_models()
+    if not prioritized:
+        return None, "利用可能なAIモデルが見つかりませんでした。"
+
+    last_error = "Unknown Error"
+    attempted = set()
+    attempts_made = 0
+
+    for idx, model_name in enumerate(prioritized):
+        if attempts_made >= 5:
+            break
+        if model_name in attempted:
+            continue
+        attempted.add(model_name)
+        attempts_made += 1
+
+        # 非Liteモデルが12秒を超えても返らない場合だけ並行保険起動する高速Lite候補を探す
+        hedge_name = next(
+            (m for m in prioritized[idx + 1 :] if "lite" in m and m not in attempted),
+            None,
+        )
+
+        primary_task = asyncio.create_task(call_model_once(model_name, contents))
+        if "lite" in model_name or not hedge_name:
+            try:
+                resp = await primary_task
+                return resp, last_error
+            except Exception as e:
+                last_error = str(e)
+                print(f"Model {model_name} failed: {e}")
+                record_model_failure(model_name, e)
+                continue
+
+        # まずHEDGE_DELAY_SEC（12秒）だけプライマリを単発待機（正常時はAPI消費1回のみ）
+        done, _ = await asyncio.wait({primary_task}, timeout=HEDGE_DELAY_SEC)
+        if primary_task in done:
+            try:
+                resp = primary_task.result()
+                return resp, last_error
+            except Exception as e:
+                last_error = str(e)
+                print(f"Model {model_name} failed: {e}")
+                record_model_failure(model_name, e)
+                continue
+
+        # 12秒経過しても応答がない場合、高速Liteモデルを裏で保険並行起動（Renderスリープ明け遅延対策）
+        attempted.add(hedge_name)
+        attempts_made += 1
+        print(f"Hedge triggered after {HEDGE_DELAY_SEC}s: launching {hedge_name} alongside {model_name}")
+        hedge_task = asyncio.create_task(call_model_once(hedge_name, contents))
+        pending_tasks = {primary_task: model_name, hedge_task: hedge_name}
+
+        while pending_tasks:
+            done, _ = await asyncio.wait(pending_tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+            for finished in done:
+                m_finished = pending_tasks.pop(finished)
+                try:
+                    resp = finished.result()
+                    # 先に勝った方を採用。残った遅延タスクはキャンセルし、遅延したprimaryを自動降格
+                    for leftover_task, leftover_name in pending_tasks.items():
+                        leftover_task.add_done_callback(
+                            lambda t: t.exception() if not t.cancelled() else None
+                        )
+                        leftover_task.cancel()
+                        if leftover_name == model_name:
+                            record_model_failure(leftover_name, asyncio.TimeoutError("Hedged due to slow response"))
+                    return resp, last_error
+                except Exception as e:
+                    last_error = str(e)
+                    print(f"Model {m_finished} failed during hedge: {e}")
+                    record_model_failure(m_finished, e)
+
+    return None, last_error
 
 def to_int(val) -> int:
     if isinstance(val, (int, float)):
@@ -496,39 +631,8 @@ async def analyze_images(
         else:
             prompt = f"添付された見積書や設置環境の画像を確認し、以下の指示に従って指定されたJSON形式で分析結果を出力してください。\n\n{category_instruction}"
         
-        models_to_try = get_dynamic_models()
-        analysis_prompt = prompt
-        
-        current_time = time.time()
-        active_exhausted = {
-            m for m, t in _exhausted_models.items() if current_time - t < 180
-        }
-        
-        prioritized_models = [m for m in models_to_try if m not in active_exhausted] + [m for m in models_to_try if m in active_exhausted]
-        
-        response = None
-        last_error = "Unknown Error"
-        for model_name in prioritized_models[:4]:
-            try:
-                config, timeout_ms = build_model_config(model_name)
-                # 非同期スレッドで実行しイベントループをブロックしない
-                response = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        genai_client.models.generate_content,
-                        model=model_name,
-                        contents=[analysis_prompt] + image_parts,
-                        config=config,
-                    ),
-                    timeout=(timeout_ms / 1000.0) + 2.0,
-                )
-                if response and response.text:
-                    break
-            except Exception as e:
-                last_error = str(e)
-                print(f"Model {model_name} failed: {e}")
-                _exhausted_models[model_name] = time.time()
-                continue
-                
+        response, last_error = await generate_with_smart_fallback([prompt] + image_parts)
+
         if not response or not response.text:
             return {"status": "error", "message": f"AIモデルの解析に失敗しました。エラー詳細: {last_error}"}
             
