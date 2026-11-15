@@ -4,11 +4,13 @@ import re
 import time
 import asyncio
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import List, Literal, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.gzip import GZipMiddleware
-import google.generativeai as genai
+from pydantic import BaseModel
+from google import genai
+from google.genai import types
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,8 +35,50 @@ if os.path.exists(env_path):
                 os.environ[k] = v
 
 GOOGLE_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
+genai_client = (
+    genai.Client(
+        api_key=GOOGLE_API_KEY,
+        http_options=types.HttpOptions(api_version="v1beta"),
+    )
+    if GOOGLE_API_KEY
+    else None
+)
+
+
+class ItemizedEntry(BaseModel):
+    item: str
+    price: int
+    status: str
+
+
+class UnnecessaryCostEntry(BaseModel):
+    item: str
+    potential_saving: int
+    reason: str
+
+
+class PriceAnalysis(BaseModel):
+    itemized_list: List[ItemizedEntry]
+    unnecessary_costs: List[UnnecessaryCostEntry]
+
+
+class SmartChoiceAnalysis(BaseModel):
+    status: Literal["success"]
+    evaluation: Literal[
+        "お買い得",
+        "やや割安",
+        "相場通り",
+        "やや割高",
+        "割高（要交渉）",
+        "危険！要注意！",
+        "情報不足（要再確認）",
+    ]
+    estimated_total_market_price: str
+    infrastructure_check: str
+    price_analysis: PriceAnalysis
+    negotiation_script_line: str
+    recommend_ec_search: bool
+    search_keyword: str
 
 SYSTEM_INSTRUCTION = """あなたは、見積書・価格・プランを極めて客観的かつ適正に評価する独立系・最高峰の価格監査・相場判定AI「SmartChoice」です。
 
@@ -111,52 +155,100 @@ def get_dynamic_models():
     global _cached_models_to_try
     if _cached_models_to_try:
         return _cached_models_to_try
-        
+
+    fallback_default = [
+        "gemini-4-hydrogen",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash-lite",
+    ]
+    if not genai_client:
+        return fallback_default
+
     discovered_models = []
     try:
-        # 常にGoogleのサーバーから最新のモデル一覧を全自動取得（固有名詞のハードコード完全排除）
-        available = [
-            m.name.replace('models/', '') 
-            for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name
-        ]
-        
-        # 特殊用途（画像生成特化、音声特化、実験版、および停止中の旧世代通常Flash）を除外
+        available = []
+        for m in genai_client.models.list():
+            actions = getattr(m, "supported_actions", None) or []
+            name = (m.name or "").replace("models/", "")
+            if "generateContent" in actions and ("flash" in name or "hydrogen" in name):
+                available.append(name)
+
+        # 特殊用途（画像生成特化、音声特化、実験版）および実測上停止・クォータ不可・遅延傾向のモデルを除外
         excluded_keywords = [
-            "preview", "eap", "omni", "image", "tts", 
-            "audio", "native", "transcribe", "computer-use", "robotics"
+            "preview", "eap", "omni", "image", "tts",
+            "audio", "native", "transcribe", "computer-use", "robotics",
         ]
-        excluded_exact = {"gemini-3.5-flash", "gemini-3.6-flash"}
+        excluded_exact = {
+            "gemini-2.5-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-flash-latest",
+            "gemini-4-argon",
+            "gemini-4-carbon",
+        }
         filtered = [
-            m for m in available 
+            m for m in available
             if not any(k in m for k in excluded_keywords) and m not in excluded_exact
         ]
-        
-        # 通常の最新Flashモデル（最高精度重視）
-        standard_flash = [m for m in filtered if "lite" not in m]
+
+        # 実測で速度・誠実性・精度のバランスが実証された最適優先順
+        top_priority = [
+            "gemini-4-hydrogen",
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-flash-lite-latest",
+        ]
+        discovered_models = [m for m in top_priority if m in filtered or m in available]
+
+        standard_flash = [m for m in filtered if "lite" not in m and m not in discovered_models]
         standard_flash.sort(key=lambda x: extract_version(x), reverse=True)
-        
-        # 高クォータ・超高速の最新Liteモデル（上限到達時の無尽蔵フォールバック）
-        lite_flash = [m for m in filtered if "lite" in m]
+
+        lite_flash = [m for m in filtered if "lite" in m and m not in discovered_models]
         lite_flash.sort(key=lambda x: extract_version(x), reverse=True)
-        
-        # 爆速＆安定稼働モデル（Liteおよび2.5-Flash）を最優先にし、待機時間を極限まで削減
-        top_stable = ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
-        discovered_models = [m for m in top_stable if m in filtered or m in available]
-        
-        combined = discovered_models + standard_flash + lite_flash
-        for m in combined:
+
+        for m in standard_flash + lite_flash:
             if m not in discovered_models:
                 discovered_models.append(m)
-                
+
         if discovered_models:
             _cached_models_to_try = discovered_models
             return _cached_models_to_try
     except Exception as e:
         print(f"Failed to fetch models: {e}")
-        pass
-        
-    return ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-flash-latest"]
+
+    return fallback_default
+
+
+def build_model_config(model_name: str) -> tuple[types.GenerateContentConfig, int]:
+    """モデル特性に応じた最適化パラメータ（思考量・タイムアウトms）を返す。"""
+    if model_name == "gemini-4-hydrogen":
+        timeout_ms = 24000
+        thinking_cfg = types.ThinkingConfig(thinking_budget=128)
+    elif model_name == "gemini-2.5-flash":
+        timeout_ms = 25000
+        thinking_cfg = None
+    else:
+        timeout_ms = 18000
+        thinking_cfg = None
+
+    cfg = types.GenerateContentConfig(
+        system_instruction=SYSTEM_INSTRUCTION,
+        temperature=0.2,
+        max_output_tokens=4096,
+        response_mime_type="application/json",
+        response_schema=SmartChoiceAnalysis,
+        thinking_config=thinking_cfg,
+        http_options=types.HttpOptions(
+            api_version="v1beta",
+            timeout=timeout_ms,
+            retry_options=types.HttpRetryOptions(attempts=1),
+        ),
+    )
+    return cfg, timeout_ms
 
 def to_int(val) -> int:
     if isinstance(val, (int, float)):
@@ -342,7 +434,7 @@ async def analyze_images(
     category: str = Form("エアコン"),
     text_input: Optional[str] = Form(None)
 ):
-    if not GOOGLE_API_KEY:
+    if not GOOGLE_API_KEY or not genai_client:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEYが設定されていません。環境変数を設定してください。")
     
     try:
@@ -360,13 +452,13 @@ async def analyze_images(
                         return {"status": "error", "message": "1ファイルあたり20MB以下のファイルを選択してください。"}
                     if contents:
                         image_parts.append(
-                            {
-                                "mime_type": resolve_mime_type(
+                            types.Part.from_bytes(
+                                data=contents,
+                                mime_type=resolve_mime_type(
                                     getattr(file, "filename", None),
                                     getattr(file, "content_type", None)
                                 ),
-                                "data": contents
-                            }
+                            )
                         )
 
         if not image_parts and not (text_input and text_input.strip()):
@@ -418,20 +510,16 @@ async def analyze_images(
         last_error = "Unknown Error"
         for model_name in prioritized_models[:4]:
             try:
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    generation_config={
-                        "response_mime_type": "application/json",
-                        "temperature": 0.2,
-                        "max_output_tokens": 4096
-                    }
-                )
-                # 非同期スレッドで実行しイベントループをブロックしない（高精細画像3枚・PDFでも途中切断しない18秒上限）
-                response = await asyncio.to_thread(
-                    model.generate_content,
-                    [analysis_prompt] + image_parts,
-                    request_options={"timeout": 18.0}
+                config, timeout_ms = build_model_config(model_name)
+                # 非同期スレッドで実行しイベントループをブロックしない
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        genai_client.models.generate_content,
+                        model=model_name,
+                        contents=[analysis_prompt] + image_parts,
+                        config=config,
+                    ),
+                    timeout=(timeout_ms / 1000.0) + 2.0,
                 )
                 if response and response.text:
                     break
