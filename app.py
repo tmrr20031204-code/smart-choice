@@ -8,7 +8,7 @@ from typing import List, Literal, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.gzip import GZipMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 
@@ -76,7 +76,15 @@ class SmartChoiceAnalysis(BaseModel):
     estimated_total_market_price: str
     infrastructure_check: str
     price_analysis: PriceAnalysis
-    negotiation_script_line: str
+    negotiation_script_line: str = Field(
+        description=(
+            "そのまま使えるLINE・メール用の交渉・確認・相談スクリプト。"
+            "『お買い得』『やや割安』の場合も空文字にせず、①好条件への感謝、②追加費用や保証等の事前確認事項、"
+            "③『問題なければ即決するので、端数のカットやさらなる少しのお値引き（買取なら査定上乗せ）のご配慮が可能か"
+            "（難しければそのままの条件でも前向きに検討する）』という失礼のない値下げ打診の3要素をすべて必ず含めること。"
+            "『情報不足（要再確認）』の時のみ空文字。"
+        )
+    )
     recommend_ec_search: bool
     search_keyword: str
 
@@ -123,6 +131,21 @@ SYSTEM_INSTRUCTION = """あなたは、見積書・価格・プランを極め�
 ・対象が有形商品（家電、ガジェット、家具、PC、スマホ、部品等）の場合、楽天市場やYahoo!ショッピングで最安値比較ができるよう、最も的確な「メーカー名 型番」または「ジャンル 主要スペック」をノイズなしでクリーンに出力せよ。
 ・無形サービス（引越し、リフォーム、保険、ガス等の作業費中心）で特定の商品がない場合は、空文字 "" を出力せよ。
 
+【交渉・確認スクリプト（negotiation_script_line）の厳格ルール】
+・「情報不足（要再確認）」以外のすべての評価において、negotiation_script_line を空文字にすることは【絶対禁止】とする。必ずそのままLINEやメールに貼り付けて使える実用的な文面を出力せよ。
+・評価ランクおよびジャンル特性に応じて、以下の通り最適な文面を作成せよ：
+  1. 「お買い得」「やや割安」の場合（重要）：
+     ・すでに良心的な好条件であるため、高圧的な値下げ要求は逆効果となる。絶対に角が立たないよう、以下の3要素で構成した【丁寧な確認・一歩打診スクリプト】を作成せよ。
+       ① 好条件の提示に対する感謝と、前向きに依頼・購入したい意思表示
+       ② トラブル防止のための具体的な事前確認事項（工事・車検・引越し等の役務なら「見積書記載外の当日追加費用・別途料金の有無、作業・保証範囲」、家電・PC等の商品なら「新品未開封・メーカー保証・送料の有無」、不用品買取なら「手数料控除や当日減額条件の有無」など、見積もり内容に即した確認ポイントを1〜2点）
+       ③ 「上記に問題がなければ即決（または御社の空き日程に合わせる等）でお願いしたいので、端数カット（端数調整）やポイント・付帯サービス等で少しだけご配慮いただくことは可能か（難しければそのままの条件でも前向きに検討する）」という、逃げ道を添えた礼儀正しい一言打診（※不用品買取の場合は、即決やまとめ売りを条件にした査定額の上乗せ相談）
+  2. 「相場通り」の場合：
+     ・提示への感謝と事前確認事項（追加費用の有無・保証条件等）に加え、「即決や日程調整を条件に、端数のお値引きや諸経費の調整をご相談できればぜひ御社に決めたい」という丁寧な交渉文を作成せよ。
+  3. 「やや割高」「割高（要交渉）」「危険！要注意！」の場合：
+     ・特定した不要項目（unnecessary_costs）の削除依頼、「一式」や諸経費の明細開示依頼、および市場相場を踏まえた具体的かつ論理的な価格見直し交渉文（不用品買取の場合は市場相場に基づく査定額引き上げ交渉文）を作成せよ。
+  4. 「情報不足（要再確認）」の場合のみ：
+     ・空文字 "" を出力せよ。
+
 【出力仕様】
 必ず以下のJSONフォーマットのみで出力せよ（マークダウン装飾、前置きテキスト不可）。
 {
@@ -134,7 +157,7 @@ SYSTEM_INSTRUCTION = """あなたは、見積書・価格・プランを極め�
     "itemized_list": [ {"item": "項目名", "price": 0, "status": "相場通り/割高/割安/不要/要注意"} ],
     "unnecessary_costs": [ {"item": "項目名", "potential_saving": 0, "reason": "理由"} ]
   },
-  "negotiation_script_line": "LINE・メール用の値引き・内訳開示交渉スクリプト。情報不足時は空文字",
+  "negotiation_script_line": "そのまま使えるLINE・メール用の交渉・確認・相談スクリプト（お買い得・やや割安でも確認事項と失礼のない一言打診を必ず生成。情報不足時のみ空文字）",
   "recommend_ec_search": false,
   "search_keyword": "商品本体を探すためのクリーンな検索キーワード。無形サービスは空文字"
 }
@@ -397,7 +420,78 @@ def to_int(val) -> int:
                 return 0
     return 0
 
-def sanitize_and_verify_result(data: dict) -> dict:
+def build_fallback_negotiation_script(
+    evaluation: str,
+    category: str,
+    unnecessary_costs: list,
+    itemized_list: list,
+) -> str:
+    """万が一AIが交渉・確認スクリプトを空または不十分に返した際の、評価・ジャンル別フェイルセーフ文面生成。"""
+    if evaluation == "情報不足（要再確認）":
+        return ""
+
+    if category == "不用品買取":
+        if evaluation in ("お買い得", "やや割安", "相場通り"):
+            return (
+                "ご丁寧な査定をいただきありがとうございます。ご提示いただいた条件に大変魅力を感じており、前向きにお願いしたいと考えております。\n"
+                "念のため事前に確認させていただきたいのですが、ご提示額から当日になって査定料・出張費・手数料等が差し引かれることや、減額となる条件はございませんでしょうか？\n"
+                "もし上記に問題がなく、端数の上乗せ（または他のお品物もあわせてお出しした場合のプラス査定）など、あともう一歩だけご配慮いただけましたら即決でお願いしたいと考えております。"
+                "難しければそのままの条件でも前向きに検討いたしますので、ご確認のほどよろしくお願いいたします。"
+            )
+        return (
+            "査定のご提示ありがとうございます。ただ、今回のお品物の市場相場や状態を踏まえますと、現在の査定額では少し手放すのを躊躇しております。\n"
+            "他社での相見積もりも検討しておりますが、もしお品物ごとの査定内訳をご開示いただいた上で、市場相場に即した査定額への引き上げをご相談できましたら幸いです。ご再考のほどよろしくお願いいたします。"
+        )
+
+    is_product = category in ("家電（冷蔵庫・洗濯機・掃除機など）", "パソコン・スマホ購入・修理")
+
+    if evaluation in ("お買い得", "やや割安"):
+        if is_product:
+            return (
+                "お見積もり・価格のご提示ありがとうございます。非常に魅力的な条件で、購入を前向きに検討しております。\n"
+                "念のため事前に確認させていただきたいのですが、こちらは「新品未開封・国内メーカー保証付き」で、送料や追加の手数料等は別途かからない認識でよろしいでしょうか？\n"
+                "もし上記に問題がなければ即決で購入したいと考えておりますので、端数のカットやポイント還元・付属品サービスなど、あともう少しだけご配慮いただくことは可能でしょうか？"
+                "難しければそのままの条件でも前向きに検討いたします。よろしくお願いいたします。"
+            )
+        return (
+            "お見積もりのご提示ありがとうございます。非常に良心的なご条件で、ぜひ前向きにお願いしたいと考えております。\n"
+            "ご依頼の前に念のため確認させていただきたいのですが、お見積書に記載のない当日の追加費用（別途部材費・諸経費・出張費等）が発生する可能性はございますでしょうか？また、保証やアフターフォローの範囲もあわせて教えていただけますと幸いです。\n"
+            "上記に問題がなければ即決でお願いしたいと考えておりますので、もし端数のカット（または日程を御社のご都合に合わせる条件での少しのお値引き・付帯サービス等）をご配慮いただくことは可能でしょうか？"
+            "難しければそのままの金額でも前向きに検討いたします。よろしくお願いいたします。"
+        )
+
+    if evaluation == "相場通り":
+        if is_product:
+            return (
+                "お見積もりのご提示ありがとうございます。前向きに購入を検討しております。\n"
+                "念のため、メーカー保証期間や在庫・納期、送料等の追加費用の有無について確認させていただけますでしょうか。\n"
+                "また、他店やネット価格とも比較しているのですが、もし即決を条件に端数のお値引きやポイント付与などのご相談が可能でしたら、ぜひ御社で購入したいと考えております。ご検討のほどよろしくお願いいたします。"
+            )
+        return (
+            "お見積もりのご提示ありがとうございます。内容を確認し、前向きに検討しております。\n"
+            "念のため確認ですが、お見積もり記載の金額以外に当日追加で発生する費用はございませんでしょうか？\n"
+            "また、他社とも比較検討しているのですが、もし日程調整や即決を条件に、端数のお値引きや諸経費のご調整などをご相談できましたら、ぜひ御社にお願いしたいと考えております。ご検討のほどよろしくお願いいたします。"
+        )
+
+    # やや割高 / 割高（要交渉） / 危険！要注意！
+    if unnecessary_costs:
+        names = "・".join(f"「{u.get('item', 'オプション項目')}」" for u in unnecessary_costs[:3])
+        saving_sum = sum(int(u.get("potential_saving", 0) or 0) for u in unnecessary_costs)
+        saving_note = f"（計{saving_sum:,}円分）" if saving_sum > 0 else ""
+        return (
+            f"お見積もりのご提示ありがとうございます。内容を拝見し、予算や市場相場と照らし合わせて検討しております。\n"
+            f"恐れ入りますが、今回のお見積もりに含まれている{names}{saving_note}につきまして、現在の当方の希望条件では不要と考えておりますため、外していただくことは可能でしょうか？\n"
+            f"また、「一式」表記の項目や諸経費の詳しい内訳をご教示いただいた上で、全体の金額を一般的な相場水準まで見直していただけましたら前向きに検討したく存じます。よろしくお願いいたします。"
+        )
+
+    return (
+        "お見積もりのご提示ありがとうございます。内容を拝見し、他社や市場相場と比較しながら検討しております。\n"
+        "大変恐縮ですが、現在の合計金額が当初の予算および一般的な相場よりやや高くなっておりまして、各項目の詳しい内訳をご教示いただくことは可能でしょうか？\n"
+        "不要なオプションの整理や日程調整等も含め、もう少しお値引きのご相談が可能でしたら前向きに検討したく存じます。ご確認のほどよろしくお願いいたします。"
+    )
+
+
+def sanitize_and_verify_result(data: dict, category: str = "") -> dict:
     if not isinstance(data, dict):
         return {"status": "error", "message": "無効なデータ形式です。"}
     
@@ -487,6 +581,47 @@ def sanitize_and_verify_result(data: dict) -> dict:
             data["estimated_total_market_price"] = "情報不足のため算出不可"
         if not data["infrastructure_check"]:
             data["infrastructure_check"] = "画像またはテキストから十分な情報が読み取れませんでした。明るい場所で全体がはっきり写るように撮影し直すか、補足情報欄に品名や金額をご入力ください。"
+    else:
+        raw_script = data["negotiation_script_line"].strip()
+        invalid_placeholders = {"なし", "特になし", "不要", "交渉不要", "該当なし", "-"}
+        if not raw_script or raw_script in invalid_placeholders or len(raw_script) < 15:
+            data["negotiation_script_line"] = build_fallback_negotiation_script(
+                evaluation=evaluation,
+                category=category,
+                unnecessary_costs=cleaned_unnec,
+                itemized_list=cleaned_items,
+            )
+        elif evaluation in ("お買い得", "やや割安", "相場通り"):
+            discount_keywords = (
+                "値引", "値下", "端数", "割引", "お安く", "カット",
+                "上乗せ", "プラス査定", "引き上げ", "サービス", "ポイント", "勉強",
+            )
+            if not any(k in raw_script for k in discount_keywords):
+                if category == "不用品買取":
+                    polite_ask = (
+                        "また、上記に問題がなければ即決でお願いしたいと考えておりますので、"
+                        "もし端数の上乗せやあともう一歩だけ査定額のご配慮をいただくことは可能でしょうか？"
+                        "難しければそのままの条件でも前向きに検討いたします。"
+                    )
+                else:
+                    polite_ask = (
+                        "また、上記に問題がなければ即決でお願いしたいと考えておりますので、"
+                        "もし端数のカットやあともう少しだけお値引き（または付帯サービス等）のご配慮をいただくことは可能でしょうか？"
+                        "難しければそのままの金額でも前向きに検討いたします。"
+                    )
+                # 「このまま即決で〜」のように値引き不要と読める表現があれば置き換え、なければ末尾挨拶の前に挿入
+                cleaned_raw = re.sub(
+                    r"その上で問題がなければ[^。]*即決で[^。]*。",
+                    "",
+                    raw_script,
+                ).strip()
+                closing_match = re.search(r"((?:どうぞ|何卒|ご検討のほど)?よろしくお願(?:い申し上げます|いいたします|いします)。?)\s*$", cleaned_raw)
+                if closing_match:
+                    prefix = cleaned_raw[: closing_match.start()].rstrip()
+                    closing = closing_match.group(1)
+                    data["negotiation_script_line"] = f"{prefix}\n{polite_ask}{closing}"
+                else:
+                    data["negotiation_script_line"] = f"{cleaned_raw}\n{polite_ask}よろしくお願いいたします。"
 
     return data
 
@@ -656,7 +791,7 @@ async def analyze_images(
             return {"status": "error", "message": "AIからの応答を正しく解析できませんでした。もう一度お試しください。"}
         
         # Python自動検算・サニタイズ処理
-        result_json = sanitize_and_verify_result(raw_json)
+        result_json = sanitize_and_verify_result(raw_json, category=category)
         if result_json.get("status") == "error":
             return result_json
 

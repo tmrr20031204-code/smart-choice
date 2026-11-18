@@ -538,9 +538,9 @@
                 </div>
 
                 <!-- 交渉スクリプト -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div id="negotiationSection" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div class="bg-green-50 px-4 py-2 border-b border-green-100">
-                        <h3 class="text-sm font-bold text-green-800">そのまま使える！交渉スクリプト</h3>
+                        <h3 id="negotiationTitle" class="text-sm font-bold text-green-800">そのまま使える！交渉スクリプト</h3>
                     </div>
                     <div class="p-4 space-y-3">
                         <textarea id="negotiationScript" class="w-full h-48 p-4 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 leading-relaxed text-gray-800" readonly></textarea>
@@ -1510,7 +1510,36 @@
                 unnecSec.classList.add('hidden');
             }
 
-            document.getElementById('negotiationScript').value = data.negotiation_script_line || "";
+            const negSection = document.getElementById('negotiationSection');
+            const negTitle = document.getElementById('negotiationTitle');
+            const negTextarea = document.getElementById('negotiationScript');
+            let scriptVal = (data.negotiation_script_line || "").trim();
+
+            if (evalValue.includes('情報不足') || evalValue.includes('判定不可')) {
+                negTextarea.value = "";
+                if (negSection) negSection.classList.add('hidden');
+            } else {
+                if (negSection) negSection.classList.remove('hidden');
+                if (negTitle) {
+                    if (evalValue.includes('お買い得') || evalValue.includes('やや割安')) {
+                        negTitle.textContent = "そのまま使える！確認・相談スクリプト";
+                    } else if (evalValue.includes('相場通り')) {
+                        negTitle.textContent = "そのまま使える！確認・交渉スクリプト";
+                    } else {
+                        negTitle.textContent = "そのまま使える！交渉スクリプト";
+                    }
+                }
+                if (!scriptVal) {
+                    if (evalValue.includes('お買い得') || evalValue.includes('やや割安')) {
+                        scriptVal = "お見積もり・価格のご提示ありがとうございます。非常に魅力的な条件で、ぜひ前向きにお願いしたいと考えております。\n念のため事前に確認させていただきたいのですが、ご提示いただいた金額以外に当日の追加費用や別途手数料等が発生する可能性はございますでしょうか？また、保証やアフターフォローの範囲もあわせて教えていただけますと幸いです。\n上記に問題がなければ即決でお願いしたいと考えておりますので、もし端数のカットや付帯サービスなど少しだけご配慮いただくことは可能でしょうか？難しければそのままの条件でも前向きに検討いたします。よろしくお願いいたします。";
+                    } else if (evalValue.includes('相場通り')) {
+                        scriptVal = "お見積もりのご提示ありがとうございます。内容を確認し、前向きに検討しております。\n念のため確認ですが、お見積もり記載の金額以外に当日追加で発生する費用はございませんでしょうか？\nまた、他社とも比較検討しているのですが、もし日程調整や即決を条件に、端数のお値引きや諸経費のご調整などをご相談できましたら、ぜひ御社にお願いしたいと考えております。ご検討のほどよろしくお願いいたします。";
+                    } else {
+                        scriptVal = "お見積もりのご提示ありがとうございます。内容を拝見し、他社や市場相場と比較しながら検討しております。\n大変恐縮ですが、現在の合計金額が当初の予算および一般的な相場よりやや高くなっておりまして、各項目の詳しい内訳をご教示いただくことは可能でしょうか？\n不要なオプションの整理や日程調整等も含め、もう少しお値引きのご相談が可能でしたら前向きに検討したく存じます。ご確認のほどよろしくお願いいたします。";
+                    }
+                }
+                negTextarea.value = scriptVal;
+            }
         }
 
         function copyToClipboard() {
