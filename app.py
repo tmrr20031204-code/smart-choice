@@ -5,7 +5,7 @@ import time
 import asyncio
 from contextlib import asynccontextmanager
 from typing import List, Literal, Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
@@ -32,7 +32,10 @@ if os.path.exists(env_path):
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
-                os.environ[k] = v
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k:
+                    os.environ.setdefault(k, v)
 
 GOOGLE_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 genai_client = (
@@ -253,9 +256,23 @@ def record_model_failure(model_name: str, err: Exception) -> None:
     _model_penalties[model_name] = float("inf") if penalty_sec == float("inf") else time.time() + penalty_sec
 
 
-def get_prioritized_models() -> list[str]:
-    """ペナルティ中でないモデルを優先し、404永久除外モデルは最後に回す（または除外する）。"""
-    models = get_dynamic_models()
+CLIENT_INPUT_ERROR_MSG = (
+    "アップロードされた画像またはPDFを読み取れませんでした。"
+    "ファイルが破損していないか・パスワード保護されていないかをご確認の上、別の写真でお試しください。"
+)
+
+
+def is_client_input_error(err: Exception) -> bool:
+    """モデル障害ではなくクライアント入力データ（破損画像・暗号化PDF等）起因の400エラーか判定する。"""
+    msg = str(err).lower()
+    if "400" in msg or "invalid_argument" in msg:
+        if "thinking" in msg or "schema" in msg or "response_schema" in msg:
+            return False
+        return True
+    return False
+
+
+def _sort_models_by_penalty(models: list[str]) -> list[str]:
     now = time.time()
     healthy = []
     cooling = []
@@ -267,6 +284,22 @@ def get_prioritized_models() -> list[str]:
             cooling.append((until, m))
     cooling.sort(key=lambda x: x[0])
     return healthy + [m for _, m in cooling]
+
+
+def get_prioritized_models() -> list[str]:
+    """ペナルティ中でないモデルを優先し、404永久除外モデルは最後に回す（または除外する）。"""
+    models = get_dynamic_models()
+    return _sort_models_by_penalty(models)
+
+
+async def get_prioritized_models_async() -> list[str]:
+    """非同期コンテキスト用：キャッシュ期限切れ時はスレッドオフロードでイベントループをブロックせずに取得する。"""
+    now = time.time()
+    if _models_cache["models"] and (now - _models_cache["fetched_at"]) < MODELS_CACHE_TTL_SEC:
+        models = _models_cache["models"]
+    else:
+        models = await asyncio.to_thread(get_dynamic_models)
+    return _sort_models_by_penalty(models)
 
 
 def build_model_config(model_name: str, allow_thinking_cfg: bool = True) -> tuple[types.GenerateContentConfig, int]:
@@ -334,7 +367,7 @@ async def call_model_once(model_name: str, contents: list):
 
 async def generate_with_smart_fallback(contents: list):
     """動的ランキング＋自動学習降格＋時間差ヘッジで確実に最良レスポンスを返す。"""
-    prioritized = get_prioritized_models()
+    prioritized = await get_prioritized_models_async()
     if not prioritized:
         return None, "利用可能なAIモデルが見つかりませんでした。"
 
@@ -362,6 +395,9 @@ async def generate_with_smart_fallback(contents: list):
                 resp = await primary_task
                 return resp, last_error
             except Exception as e:
+                if is_client_input_error(e):
+                    print(f"Client input error on {model_name}: {e}")
+                    return None, CLIENT_INPUT_ERROR_MSG
                 last_error = str(e)
                 print(f"Model {model_name} failed: {e}")
                 record_model_failure(model_name, e)
@@ -374,6 +410,9 @@ async def generate_with_smart_fallback(contents: list):
                 resp = primary_task.result()
                 return resp, last_error
             except Exception as e:
+                if is_client_input_error(e):
+                    print(f"Client input error on {model_name}: {e}")
+                    return None, CLIENT_INPUT_ERROR_MSG
                 last_error = str(e)
                 print(f"Model {model_name} failed: {e}")
                 record_model_failure(model_name, e)
@@ -402,6 +441,14 @@ async def generate_with_smart_fallback(contents: list):
                             record_model_failure(leftover_name, asyncio.TimeoutError("Hedged due to slow response"))
                     return resp, last_error
                 except Exception as e:
+                    if is_client_input_error(e):
+                        print(f"Client input error on {m_finished} during hedge: {e}")
+                        for leftover_task in pending_tasks.keys():
+                            leftover_task.add_done_callback(
+                                lambda t: t.exception() if not t.cancelled() else None
+                            )
+                            leftover_task.cancel()
+                        return None, CLIENT_INPUT_ERROR_MSG
                     last_error = str(e)
                     print(f"Model {m_finished} failed during hedge: {e}")
                     record_model_failure(m_finished, e)
@@ -424,7 +471,6 @@ def build_fallback_negotiation_script(
     evaluation: str,
     category: str,
     unnecessary_costs: list,
-    itemized_list: list,
 ) -> str:
     """万が一AIが交渉・確認スクリプトを空または不十分に返した際の、評価・ジャンル別フェイルセーフ文面生成。"""
     if evaluation == "情報不足（要再確認）":
@@ -589,7 +635,6 @@ def sanitize_and_verify_result(data: dict, category: str = "") -> dict:
                 evaluation=evaluation,
                 category=category,
                 unnecessary_costs=cleaned_unnec,
-                itemized_list=cleaned_items,
             )
         elif evaluation in ("お買い得", "やや割安", "相場通り"):
             discount_keywords = (
@@ -655,6 +700,7 @@ async def get_index():
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
         )
 
+@app.get("/favicon.ico")
 @app.get("/icon.png")
 @app.get("/app_icon_v2.png")
 async def get_icon_v2():
@@ -681,9 +727,62 @@ async def get_sw():
         )
     raise HTTPException(status_code=404, detail="Service Worker not found")
 
-def resolve_mime_type(filename: Optional[str], content_type: Optional[str]) -> str:
-    ct = (content_type or "").strip().lower()
-    if ct and ct != "application/octet-stream" and ("/" in ct):
+ALLOWED_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/heic",
+    "image/heif",
+    "application/pdf",
+}
+
+RATE_LIMIT_WINDOW_SEC = 60.0
+RATE_LIMIT_MAX_REQUESTS = 10
+RATE_LIMIT_MAX_KEYS = 500
+MAX_TEXT_LENGTH = 10000
+_rate_limit_store: dict[str, list[float]] = {}
+
+
+def get_client_ip(request: Optional[Request]) -> str:
+    """Renderリバースプロキシ配下に対応し、X-Forwarded-For先頭IPを優先取得する。"""
+    if not isinstance(request, Request):
+        return ""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        first_ip = xff.split(",")[0].strip()
+        if first_ip:
+            return first_ip
+    return request.client.host if request.client else ""
+
+
+def check_rate_limit(client_ip: str) -> bool:
+    """同一IPあたり直近60秒間で最大10回までのスライディングウィンドウ制限。"""
+    if not client_ip:
+        return True
+    now = time.time()
+    if len(_rate_limit_store) > RATE_LIMIT_MAX_KEYS:
+        expired_keys = [
+            ip for ip, ts_list in _rate_limit_store.items()
+            if not ts_list or (now - ts_list[-1]) >= RATE_LIMIT_WINDOW_SEC
+        ]
+        for ip in expired_keys:
+            _rate_limit_store.pop(ip, None)
+
+    timestamps = [t for t in _rate_limit_store.get(client_ip, []) if (now - t) < RATE_LIMIT_WINDOW_SEC]
+    if len(timestamps) >= RATE_LIMIT_MAX_REQUESTS:
+        _rate_limit_store[client_ip] = timestamps
+        return False
+    timestamps.append(now)
+    _rate_limit_store[client_ip] = timestamps
+    return True
+
+
+def resolve_mime_type(filename: Optional[str], content_type: Optional[str]) -> Optional[str]:
+    ct = (content_type or "").strip().lower().split(";")[0].strip()
+    if ct == "image/jpg":
+        ct = "image/jpeg"
+    if ct in ALLOWED_MIME_TYPES:
         return ct
     ext = os.path.splitext(filename or "")[1].lower()
     ext_map = {
@@ -696,10 +795,11 @@ def resolve_mime_type(filename: Optional[str], content_type: Optional[str]) -> s
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
     }
-    return ext_map.get(ext, "image/jpeg")
+    return ext_map.get(ext, None)
 
 @app.post("/api/analyze")
 async def analyze_images(
+    request: Request = None,
     files: Optional[List[UploadFile]] = File(None),
     category: str = Form("エアコン"),
     text_input: Optional[str] = Form(None)
@@ -708,6 +808,19 @@ async def analyze_images(
         raise HTTPException(status_code=500, detail="GEMINI_API_KEYが設定されていません。環境変数を設定してください。")
     
     try:
+        client_ip = get_client_ip(request)
+        if not check_rate_limit(client_ip):
+            return {
+                "status": "error",
+                "message": "短時間にアクセスが集中しています。1分ほどお待ちいただいてから再度お試しください。"
+            }
+
+        if text_input and len(text_input) > MAX_TEXT_LENGTH:
+            return {
+                "status": "error",
+                "message": "入力テキストが長すぎます（10,000文字以内でご入力ください）。"
+            }
+
         MAX_FILES = 3
         MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
         image_parts = []
@@ -717,6 +830,15 @@ async def analyze_images(
                 return {"status": "error", "message": f"ファイルは最大{MAX_FILES}点まで選択可能です。"}
             for file in file_list:
                 if hasattr(file, "read"):
+                    mime = resolve_mime_type(
+                        getattr(file, "filename", None),
+                        getattr(file, "content_type", None)
+                    )
+                    if not mime:
+                        return {
+                            "status": "error",
+                            "message": "対応していないファイル形式です。画像（JPG・PNG・HEIC等）またはPDFファイルを選択してください。"
+                        }
                     contents = await file.read(MAX_FILE_SIZE + 1)
                     if len(contents) > MAX_FILE_SIZE:
                         return {"status": "error", "message": "1ファイルあたり20MB以下のファイルを選択してください。"}
@@ -724,10 +846,7 @@ async def analyze_images(
                         image_parts.append(
                             types.Part.from_bytes(
                                 data=contents,
-                                mime_type=resolve_mime_type(
-                                    getattr(file, "filename", None),
-                                    getattr(file, "content_type", None)
-                                ),
+                                mime_type=mime,
                             )
                         )
 
@@ -769,7 +888,13 @@ async def analyze_images(
         response, last_error = await generate_with_smart_fallback([prompt] + image_parts)
 
         if not response or not response.text:
-            return {"status": "error", "message": f"AIモデルの解析に失敗しました。エラー詳細: {last_error}"}
+            if last_error == CLIENT_INPUT_ERROR_MSG:
+                return {"status": "error", "message": CLIENT_INPUT_ERROR_MSG}
+            print(f"All AI models failed. Last error: {last_error}")
+            return {
+                "status": "error",
+                "message": "現在AIサーバーが大変混み合っております。数十秒〜1分ほど時間をおいてから、もう一度お試しください。"
+            }
             
         raw_json = None
         clean_text = response.text.strip()
@@ -800,9 +925,9 @@ async def analyze_images(
             affiliate_config = get_affiliate_config()
             if category in affiliate_config:
                 recommend_ec = result_json.get("recommend_ec_search", False)
+                eval_text = result_json.get("evaluation", "")
                 
-                if not recommend_ec:
-                    eval_text = result_json.get("evaluation", "")
+                if not recommend_ec and eval_text != "情報不足（要再確認）":
                     is_high_priority = any(keyword in eval_text for keyword in ["危険", "割高", "要注意"])
                     
                     result_json["affiliate_recommendation"] = {
@@ -815,14 +940,14 @@ async def analyze_images(
                     }
         except Exception as e:
             print(f"Affiliate config error: {e}")
-            pass
 
         return result_json
         
     except Exception as e:
+        print(f"Unexpected error in analyze_images: {e}")
         return {
             "status": "error",
-            "message": str(e)
+            "message": "システム処理中に一時的なエラーが発生しました。時間をおいて再度お試しください。"
         }
 
 if __name__ == "__main__":

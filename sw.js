@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-choice-shell-v3';
+const CACHE_NAME = 'smart-choice-shell-v4';
 const PRECACHE_URLS = [
   '/',
   '/app_icon_v2.png',
